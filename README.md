@@ -1,2 +1,2 @@
-# rocket-net-mq
+# dotnet-mq
 rocketmq server dotnet implement
