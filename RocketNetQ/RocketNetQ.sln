@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{21E278E4-26A7-4E58-8259-E5B3D79F24B6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RocketNetQ.Broker", "src\RocketNetQ.Broker\RocketNetQ.Broker.csproj", "{6611FDE1-C42E-4050-92B8-FDA1FDB1220B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RocketNetQ.Logging", "src\RocketNetQ.Logging\RocketNetQ.Logging.csproj", "{8A0A0BAB-CF53-4F1B-B383-89C9C1E06A22}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6611FDE1-C42E-4050-92B8-FDA1FDB1220B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6611FDE1-C42E-4050-92B8-FDA1FDB1220B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6611FDE1-C42E-4050-92B8-FDA1FDB1220B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6611FDE1-C42E-4050-92B8-FDA1FDB1220B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A0A0BAB-CF53-4F1B-B383-89C9C1E06A22}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A0A0BAB-CF53-4F1B-B383-89C9C1E06A22}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A0A0BAB-CF53-4F1B-B383-89C9C1E06A22}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A0A0BAB-CF53-4F1B-B383-89C9C1E06A22}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{6611FDE1-C42E-4050-92B8-FDA1FDB1220B} = {21E278E4-26A7-4E58-8259-E5B3D79F24B6}
+		{8A0A0BAB-CF53-4F1B-B383-89C9C1E06A22} = {21E278E4-26A7-4E58-8259-E5B3D79F24B6}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8B0C0B99-01AF-4A42-9AC6-348B0B10BB39}
+	EndGlobalSection
+EndGlobal
