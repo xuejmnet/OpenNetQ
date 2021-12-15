@@ -1,4 +1,4 @@
-﻿namespace RocketNetQ.Logging.FileLogging.File
+﻿namespace OpenNetQ.Logging.FileLogging.File
 {
     internal static class RollingIntervalEnumExtensions
     {

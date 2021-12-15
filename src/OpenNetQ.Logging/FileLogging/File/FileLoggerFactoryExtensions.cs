@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-namespace RocketNetQ.Logging.FileLogging.File
+namespace OpenNetQ.Logging.FileLogging.File
 {
     public static class FileLoggerFactoryExtensions
     {

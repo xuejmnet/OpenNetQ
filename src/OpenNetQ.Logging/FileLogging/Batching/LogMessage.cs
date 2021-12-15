@@ -1,4 +1,4 @@
-﻿namespace RocketNetQ.Logging.FileLogging.Batching
+﻿namespace OpenNetQ.Logging.FileLogging.Batching
 {
     public struct LogMessage
     {

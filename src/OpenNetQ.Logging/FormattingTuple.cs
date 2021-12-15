@@ -4,7 +4,7 @@
 using System.Diagnostics.Contracts;
 using KhaosLog.LoggingProvider;
 
-namespace RocketNetQ.Logging
+namespace OpenNetQ.Logging
 {
     /// <summary>
     /// Holds the results of formatting done by <see cref="MessageFormatter"/>.

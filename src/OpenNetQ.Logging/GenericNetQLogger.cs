@@ -4,7 +4,7 @@
 using KhaosLog.LoggingProvider;
 using Microsoft.Extensions.Logging;
 
-namespace RocketNetQ.Logging
+namespace OpenNetQ.Logging
 {
     sealed class GenericNetQLogger : AbstractInternalNetQLogger
     {

@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Options;
 using RocketNetQ.Logging.FileLogging.Batching;
 
-namespace RocketNetQ.Logging.FileLogging.File
+namespace OpenNetQ.Logging.FileLogging.File
 {
     [ProviderAlias("File")]
     public class FileLoggerProvider : BatchingLoggerProvider

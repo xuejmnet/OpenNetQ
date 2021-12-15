@@ -3,7 +3,7 @@
 
 using System.Text;
 
-namespace RocketNetQ.Logging
+namespace OpenNetQ.Logging
 {
     /// <summary>
     /// Formats messages according to very simple substitution rules. Substitutions can be made 1, 2 or more arguments.

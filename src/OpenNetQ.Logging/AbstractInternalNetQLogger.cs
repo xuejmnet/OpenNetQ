@@ -4,7 +4,7 @@
 using System.Diagnostics.Contracts;
 using KhaosLog.LoggingProvider;
 
-namespace RocketNetQ.Logging
+namespace OpenNetQ.Logging
 {
     /// <summary>
     /// A skeletal implementation of <see cref="IInternalNetQLogger"/>. This class implements

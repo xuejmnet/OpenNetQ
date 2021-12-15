@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace RocketNetQ.Logging.FileLogging.Batching
+namespace OpenNetQ.Logging.FileLogging.Batching
 {
     public abstract class BatchingLoggerProvider : ILoggerProvider
     {

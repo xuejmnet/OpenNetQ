@@ -3,7 +3,7 @@
 
 using KhaosLog.LoggingProvider;
 
-namespace RocketNetQ.Logging
+namespace OpenNetQ.Logging
 {
     /// <summary>
     ///     <em>Internal-use-only</em> logger used by DotNetty. <strong>DO NOT</strong>

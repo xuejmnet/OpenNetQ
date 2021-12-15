@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
-namespace RocketNetQ.Logging.FileLogging.Batching
+namespace OpenNetQ.Logging.FileLogging.Batching
 {
     public class BatchLoggerConfigureOptions : IConfigureOptions<BatchingLoggerOptions>
     {

@@ -1,7 +1,7 @@
 using System.Diagnostics.Contracts;
 using Microsoft.Extensions.Logging;
 
-namespace RocketNetQ.Logging
+namespace OpenNetQ.Logging
 {
 /*
 * @Author: xjm

@@ -1,4 +1,4 @@
-﻿namespace RocketNetQ.Logging.FileLogging.File
+﻿namespace OpenNetQ.Logging.FileLogging.File
 {
     /// <summary>
     /// Specifies the frequency at which the log file should roll.
