@@ -1,0 +1,14 @@
+<Project>
+
+  <PropertyGroup>
+    <!--默认统一输出XML注释文档，不需要输出的项目可以单独关闭-->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Authors>xuejmnet</Authors>
+    <RepositoryUrl>https://github.com/xuejmnet/OpenNetQ</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <Company>xuejm</Company>
+    <LangVersion>10.0</LangVersion>
+    <Description>high performance lightweight MQClient </Description>
+  </PropertyGroup>
+
+</Project>

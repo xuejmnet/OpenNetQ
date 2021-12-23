@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using RocketNetQ.Logging.FileLogging.Batching;
+using OpenNetQ.Logging.FileLogging.Batching;
 
 namespace OpenNetQ.Logging.FileLogging.File
 {
