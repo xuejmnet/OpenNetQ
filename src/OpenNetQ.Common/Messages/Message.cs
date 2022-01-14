@@ -1,6 +1,4 @@
-using System;
-
-namespace OpenNetQ.Store.Common.Messages;
+namespace OpenNetQ.Common.Messages;
 
 /*
 * @Author: xjm
@@ -48,7 +46,7 @@ public class Message
 
     public void SetKeys(string keys)
     {
-        this.AddProperty(,keys);
+        this.AddProperty(MessageConstant.PROPERTY_KEYS,keys);
     }
     private void AddProperty(string name,string value)
     {
@@ -57,6 +55,14 @@ public class Message
             this.properties = new Dictionary<string, string>();
         }
         this.properties.Add(name,value);
+    }
+
+    private void ClearProperty(string name)
+    {
+        if (null != this.properties)
+        {
+            this.properties.Remove(name);
+        }
     }
 
 }
