@@ -12,5 +12,5 @@ namespace OpenNetQ.Remoting.Common;
 public class RemotingUtil
 {
     private static readonly bool isLinuxPlatform = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
-    private static readonly bool isWindowsPlatform = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+    private static readonly bool isWindowsPlatform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 }

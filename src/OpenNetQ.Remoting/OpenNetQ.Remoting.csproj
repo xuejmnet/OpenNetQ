@@ -10,4 +10,8 @@
     <Folder Include="Nettys" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\OpenNetQ.Common\OpenNetQ.Common.csproj" />
+  </ItemGroup>
+
 </Project>
