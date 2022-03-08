@@ -1,4 +1,6 @@
 using System;
+using System.Reflection;
+using J2N.IO;
 using OpenNetQ.Common;
 
 /*
@@ -14,13 +16,15 @@ namespace OpenNetQ.Remoting.Protocol
         private static readonly int RPC_TYPE = 0; // 0, REQUEST_COMMAND
         private static readonly int RPC_ONEWAY = 1; // 0, RPC
         private static AtomicSequence requestId = new AtomicSequence(0);
-        private static SerializeTypeEnum serializeTypeConfigInThisServer = SerializeTypeEnum.JSON;
+        private static SerializeTypeEnum SerializeTypeConfigInThisServer = SerializeTypeEnum.JSON;
+        private static readonly IDictionary<Type, PropertyInfo[]> CLASS_HASH_MAP = new Dictionary<Type, PropertyInfo[]>();
+        private static readonly IDictionary<Type, string> CANONICAL_NAME_CACHE = new Dictionary<Type, string>();
 
         static RemotingCommand()
         {
             //TODO
             //读取环境变量或者配置文件
-            serializeTypeConfigInThisServer= SerializeTypeEnum.JSON;
+            SerializeTypeConfigInThisServer= SerializeTypeEnum.JSON;
         }
         
         public int Code { get; set; }
@@ -29,9 +33,12 @@ namespace OpenNetQ.Remoting.Protocol
         public int Opaque { get; set; } = requestId.GetAndIncrement();
         public int Flag { get; set; }
         public string Remark { get; set; }
-        public Dictionary<string,string> ExtFields { get; set; }
+        public IDictionary<string,string> ExtFields { get; set; }
         private ICommandCustomHeader CustomHeader{ get; set; }
 
+        public SerializeTypeEnum SerializeTypeCurrentRPC = SerializeTypeConfigInThisServer;
+
+        public byte[]? Body { get; set; }
         public RemotingCommand()
         {
             
@@ -120,6 +127,56 @@ namespace OpenNetQ.Remoting.Protocol
         {
             int bits = 1 << RPC_ONEWAY;
             return (Flag & bits) == bits;
+        }
+
+        /// <summary>
+        /// get current command type
+        /// 获取当前命令的类型
+        /// </summary>
+        /// <returns></returns>
+        public RemotingCommandType GetType()
+        {
+            if (IsResponseType())
+            {
+                return RemotingCommandType.RESPONSE_COMMAND;
+            }
+
+            return RemotingCommandType.REQUEST_COMMAND;
+        }
+
+        public ByteBuffer EncodeHeader()
+        {
+            return EncodeHeader(Body?.Length ?? 0);
+        }
+        public ByteBuffer EncodeHeader(int bodyLength)
+        {
+            // 1> header length size
+            int length = 4;
+            
+            // 2> header data length
+            byte[] headerData=
+            
+        }
+
+        public byte[] HeaderEncode()
+        {
+            MakeCustomHeaderToNet();
+            if (SerializeTypeEnum.OPENNETQ == SerializeTypeCurrentRPC)
+            {
+                
+            }
+
+        }
+
+        public void MakeCustomHeaderToNet()
+        {
+            if (this.CustomHeader != null)
+            {
+                if (ExtFields == null)
+                {
+                    ExtFields = new Dictionary<string, string>();
+                }
+            }
         }
     }
 }
