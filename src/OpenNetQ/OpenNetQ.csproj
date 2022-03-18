@@ -15,5 +15,8 @@
 		<DocumentationFile>bin\Release\OpenNetQ.xml</DocumentationFile>
 		<LangVersion>latest</LangVersion>
 	</PropertyGroup>
+	<ItemGroup>
+	  <PackageReference Include="J2N" Version="2.0.0" />
+	</ItemGroup>
 
 </Project>

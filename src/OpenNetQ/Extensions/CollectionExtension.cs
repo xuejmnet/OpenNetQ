@@ -6,7 +6,7 @@ using System;
 * @Date: DATE TIME
 * @Email: 326308290@qq.com
 */
-namespace OpenNetQ.Common.Extensions
+namespace OpenNetQ.Extensions
 {
     public static class CollectionExtension
     {

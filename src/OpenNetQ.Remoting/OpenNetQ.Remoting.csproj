@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
@@ -7,11 +7,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Nettys" />
+    <PackageReference Include="DotNetty.Buffers" Version="0.7.2" />
+    <PackageReference Include="DotNetty.Codecs" Version="0.7.2" />
+    <PackageReference Include="DotNetty.Handlers" Version="0.7.2" />
+    <PackageReference Include="DotNetty.Transport" Version="0.7.2" />
+    <PackageReference Include="J2N" Version="2.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\OpenNetQ.Common\OpenNetQ.Common.csproj" />
+    <ProjectReference Include="..\OpenNetQ.Logging\OpenNetQ.Logging.csproj" />
   </ItemGroup>
 
 </Project>
