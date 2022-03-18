@@ -27,7 +27,7 @@ namespace OpenNetQ.TaskSchedulers
         private System.Timers.Timer _timer;
         private object _lockCreateTimer = new object();
         private bool _run = true;
-        private Semaphore _sem = null;
+        private SemaphoreSlim _sem = null;
         private int _semMaxCount = int.MaxValue; //可以同时授予的信号量的最大请求数
         private int _semCount = 0; //可用信号量请求数
         private int _runCount = 0; //正在执行的和等待执行的任务数量
@@ -66,7 +66,7 @@ namespace OpenNetQ.TaskSchedulers
         /// <param name="maxThreadCount">最大线程数</param>
         public OpenNetQTaskScheduler(int coreThreadCount = 10, int maxThreadCount = 20)
         {
-            _sem = new Semaphore(0, _semMaxCount);
+            _sem = new SemaphoreSlim(0, _semMaxCount);
             _maxThreadCount = maxThreadCount;
             CreateCoreThreads(coreThreadCount);
         }
@@ -155,7 +155,7 @@ namespace OpenNetQ.TaskSchedulers
                         }
                         else
                         {
-                            _sem.WaitOne();
+                            _sem.Wait();
                             Interlocked.Decrement(ref _semCount);
                         }
                     }
@@ -198,7 +198,7 @@ namespace OpenNetQ.TaskSchedulers
                     }
                     else
                     {
-                        _sem.WaitOne(_auxiliaryThreadTimeOut);
+                        _sem.Wait(_auxiliaryThreadTimeOut);
                         Interlocked.Decrement(ref _semCount);
                     }
                 }
