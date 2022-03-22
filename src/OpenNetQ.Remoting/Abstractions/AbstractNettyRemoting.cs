@@ -18,11 +18,11 @@ using OpenNetQ.TaskSchedulers;
 
 namespace OpenNetQ.Remoting.Abstractions
 {
-    public abstract class AbstractNettyYRemoting
+    public abstract class AbstractNettyRemoting
     {
         private readonly int _permitsOneway;
         private readonly int _permitsAsync;
-        private static IInternalNetQLogger _log = InternalNetQLoggerFactory.GetLogger<AbstractNettyYRemoting>();
+        private static IInternalNetQLogger _log = InternalNetQLoggerFactory.GetLogger<AbstractNettyRemoting>();
         private readonly SemaphoreSlim _semaphoreOneway;
         private readonly SemaphoreSlim _semaphoreAsync;
         protected readonly Dictionary<int, (IMessageRequestProcessor, OpenNetQTaskScheduler)> ProcessorTables = new(64);
@@ -36,21 +36,20 @@ namespace OpenNetQ.Remoting.Abstractions
          */
         protected List<IRPCHook> RpcHooks = new List<IRPCHook>();
 
-        protected NettyEventExecutor NettyEventExecutor { get; }
+        protected NettyEventExecutor NettyEventExecutor = new NettyEventExecutor();
 
-        public AbstractNettyYRemoting(ChannelEventListener listener, int permitsOneway, int permitsAsync)
+        public AbstractNettyRemoting(ChannelEventListener listener, int permitsOneway, int permitsAsync)
         {
             _permitsOneway = permitsOneway;
             _permitsAsync = permitsAsync;
 
             _semaphoreAsync = new SemaphoreSlim(Math.Max(1, permitsAsync));
             _semaphoreOneway = new SemaphoreSlim(Math.Max(1, permitsOneway));
-            NettyEventExecutor = new NettyEventExecutor(listener);
         }
 
-        public void PutNettyEvent(NettyEvent @event)
+        public void PutNettyEvent(NettyEventArg eventArg)
         {
-            this.NettyEventExecutor.PutNettyEvent(@event);
+            this.NettyEventExecutor.PutNettyEvent(eventArg);
         }
 
         /// <summary>
@@ -296,6 +295,42 @@ namespace OpenNetQ.Remoting.Abstractions
                 rpcHook.DoAfterResponse(addr, request, response);
             }
         }
+
+        protected void FailFast(IChannel channel)
+        {
+            ResponseTables.FirstOrDefault(o => Equals(o.Value.GetChannel(), channel)).var;
+            var enumerator = ResponseTables.GetEnumerator();
+            while (enumerator.MoveNext())
+            {
+                var keyValuePair = enumerator.Current;
+                if(Equals(keyValuePair.Value.GetChannel(),channel))
+                {
+                    var opaque = keyValuePair.Key;
+                    RequestFail(opaque);
+                }
+            }
+        }
+
+        private void RequestFail(int opaque) {
+            if (ResponseTables.TryRemove(opaque, out var responseTask))
+            {
+                responseTask.SetSendResponseOk(false);
+                responseTask.AddResponse(null);
+                try
+                {
+                    ExecuteInvokeCallback(responseTask);
+                }
+                catch (Exception e)
+                {
+                    _log.Warn($"execute callback in requestFail, and callback throw {e}");
+                }
+                finally
+                {
+                    responseTask.Release();
+                }
+            }
+        }
+
 
 
         public void InvokeOnewayImpl(IChannel channel, RemotingCommand request, long timeoutMillis)

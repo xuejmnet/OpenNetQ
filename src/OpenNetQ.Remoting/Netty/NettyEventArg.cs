@@ -7,13 +7,13 @@ using DotNetty.Transport.Channels;
 
 namespace OpenNetQ.Remoting.Netty
 {
-    public class NettyEvent
+    public class NettyEventArg
     {
         private readonly NettyEventTypeEnum nettyEventType;
         private readonly String remoteAddr;
         private readonly IChannel channel;
 
-        public NettyEvent(NettyEventTypeEnum nettyEventType, String remoteAddr, IChannel channel)
+        public NettyEventArg(NettyEventTypeEnum nettyEventType, String remoteAddr, IChannel channel)
         {
             this.nettyEventType = nettyEventType;
             this.remoteAddr = remoteAddr;

@@ -20,7 +20,7 @@ namespace OpenNetQ.Remoting.Netty
         private readonly Action<ResponseTask>? _callback;
         private readonly CountdownEvent _countdownEvent = new CountdownEvent(1);
         private volatile bool _isOk;
-        private volatile RemotingCommand _responseCommand;
+        private volatile RemotingCommand? _responseCommand;
         private volatile Exception _exception;
         private readonly long _beginTimestamp = DateTimeOffset.Now.ToUnixTimeMilliseconds();
         private readonly SemaphoreReleaseOnlyOnce _once;
@@ -44,7 +44,7 @@ namespace OpenNetQ.Remoting.Netty
             return _callback != null;
         }
 
-        public RemotingCommand WaitResponse()
+        public RemotingCommand? WaitResponse()
         {
             _countdownEvent.Wait((int)_timeoutMillis);
             return _responseCommand;
@@ -65,13 +65,13 @@ namespace OpenNetQ.Remoting.Netty
             return _channel;
         }
 
-        public void AddResponse(RemotingCommand cmd)
+        public void AddResponse(RemotingCommand? cmd)
         {
             _responseCommand = cmd;
             _countdownEvent.Signal();
         }
 
-        public RemotingCommand GetResponseCommand()
+        public RemotingCommand? GetResponseCommand()
         {
             return _responseCommand;
         }

@@ -12,27 +12,27 @@ namespace OpenNetQ.Remoting.Abstractions
 {
     public class NettyEventExecutor : AbstractServiceThread
     {
-        private readonly ChannelEventListener _listener;
         private static readonly IInternalNetQLogger _log = InternalNetQLoggerFactory.GetLogger<NettyEventExecutor>();
-        private readonly BlockingCollection<NettyEvent> eventQueue =
-            new BlockingCollection<NettyEvent>();
+        private readonly BlockingCollection<NettyEventArg> eventQueue =
+            new BlockingCollection<NettyEventArg>();
         private readonly int maxSize = 10000;
 
-        public NettyEventExecutor(ChannelEventListener listener)
-        {
-            _listener = listener;
-        }
-        public void PutNettyEvent(NettyEvent @event)
+        public void PutNettyEvent(NettyEventArg eventArg)
         {
             if (this.eventQueue.Count <= maxSize)
             {
-                this.eventQueue.Add(@event);
+                this.eventQueue.Add(eventArg);
             }
             else
             {
-                _log.Warn($"event queue size[{this.eventQueue.Count}] enough, so drop this event {@event}");
+                _log.Warn($"event queue size[{this.eventQueue.Count}] enough, so drop this event {eventArg}");
             }
         }
+
+        public event EventHandler<NettyEventArg> OnChannelIdle;
+        public event EventHandler<NettyEventArg> OnChannelClose;
+        public event EventHandler<NettyEventArg> OnChannelConnect;
+        public event EventHandler<NettyEventArg> OnChannelException;
         public override string GetServiceName()
         {
             return nameof(NettyEventExecutor);
@@ -53,16 +53,16 @@ namespace OpenNetQ.Remoting.Abstractions
                         switch (@event.GetNettyEventType())
                         {
                             case NettyEventTypeEnum.IDLE:
-                                _listener.OnChannelIdle(@event.GetRemoteAddr(), @event.GetChannel());
+                                OnChannelIdle?.Invoke(this,@event);
                                 break;
                             case NettyEventTypeEnum.CLOSE:
-                                _listener.OnChannelClose(@event.GetRemoteAddr(), @event.GetChannel());
+                                OnChannelClose?.Invoke(this,@event);
                                 break;
                             case NettyEventTypeEnum.CONNECT:
-                                _listener.OnChannelConnect(@event.GetRemoteAddr(), @event.GetChannel());
+                                OnChannelConnect?.Invoke(this,@event);
                                 break;
                             case NettyEventTypeEnum.EXCEPTION:
-                                _listener.OnChannelException(@event.GetRemoteAddr(), @event.GetChannel());
+                                OnChannelException.Invoke(this,@event);
                                 break;
                             default:
                                 break;
