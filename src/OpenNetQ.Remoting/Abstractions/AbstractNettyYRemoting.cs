@@ -6,9 +6,11 @@ using System.Text;
 using System.Threading.Tasks;
 using DotNetty.Transport.Channels;
 using Microsoft.Extensions.Logging;
+using OpenNetQ.Concurrent;
 using OpenNetQ.Extensions;
 using OpenNetQ.Logging;
 using OpenNetQ.Remoting.Common;
+using OpenNetQ.Remoting.Exceptions;
 using OpenNetQ.Remoting.Netty;
 using OpenNetQ.Remoting.Netty.Abstractions;
 using OpenNetQ.Remoting.Protocol;
@@ -16,9 +18,11 @@ using OpenNetQ.TaskSchedulers;
 
 namespace OpenNetQ.Remoting.Abstractions
 {
-    public abstract class AbstractRemotingClient
+    public abstract class AbstractNettyYRemoting
     {
-        private static IInternalNetQLogger _log = InternalNetQLoggerFactory.GetLogger<AbstractRemotingClient>();
+        private readonly int _permitsOneway;
+        private readonly int _permitsAsync;
+        private static IInternalNetQLogger _log = InternalNetQLoggerFactory.GetLogger<AbstractNettyYRemoting>();
         private readonly SemaphoreSlim _semaphoreOneway;
         private readonly SemaphoreSlim _semaphoreAsync;
         protected readonly Dictionary<int, (IMessageRequestProcessor, OpenNetQTaskScheduler)> ProcessorTables = new(64);
@@ -31,12 +35,24 @@ namespace OpenNetQ.Remoting.Abstractions
          * custom rpc hooks
          */
         protected List<IRPCHook> RpcHooks = new List<IRPCHook>();
-        public AbstractRemotingClient(int permitsOneway, int permitsAsync)
+
+        protected NettyEventExecutor NettyEventExecutor { get; }
+
+        public AbstractNettyYRemoting(ChannelEventListener listener, int permitsOneway, int permitsAsync)
         {
+            _permitsOneway = permitsOneway;
+            _permitsAsync = permitsAsync;
 
             _semaphoreAsync = new SemaphoreSlim(Math.Max(1, permitsAsync));
             _semaphoreOneway = new SemaphoreSlim(Math.Max(1, permitsOneway));
+            NettyEventExecutor = new NettyEventExecutor(listener);
         }
+
+        public void PutNettyEvent(NettyEvent @event)
+        {
+            this.NettyEventExecutor.PutNettyEvent(@event);
+        }
+
         /// <summary>
         /// 处理收到的消息
         /// </summary>
@@ -60,6 +76,7 @@ namespace OpenNetQ.Remoting.Abstractions
                 }
             }
         }
+
         /// <summary>
         /// 处理收到的请求消息
         /// </summary>
@@ -67,7 +84,8 @@ namespace OpenNetQ.Remoting.Abstractions
         /// <param name="cmd"></param>
         public void ProcessRequestCommand(IChannelHandlerContext ctx, RemotingCommand cmd)
         {
-            (IMessageRequestProcessor messageRequestProcessor, OpenNetQTaskScheduler openNetQTaskScheduler) pair = default;
+            (IMessageRequestProcessor messageRequestProcessor, OpenNetQTaskScheduler openNetQTaskScheduler) pair =
+                default;
             if (!ProcessorTables.TryGetValue(cmd.Code, out (IMessageRequestProcessor, OpenNetQTaskScheduler) matched))
             {
                 pair = DefaultRequestProcessor;
@@ -129,7 +147,8 @@ namespace OpenNetQ.Remoting.Abstractions
 
                         if (!cmd.IsOnewayRPC())
                         {
-                            RemotingCommand response = RemotingCommand.CreateResponseCommand(RemotingSysResponseCode.SYSTEM_ERROR, RemotingHelper.ExceptionSimpleDesc(e));
+                            RemotingCommand response = RemotingCommand.CreateResponseCommand(
+                                RemotingSysResponseCode.SYSTEM_ERROR, RemotingHelper.ExceptionSimpleDesc(e));
 
                             response.Opaque = opaque;
                             ctx.WriteAndFlushAsync(response);
@@ -141,7 +160,8 @@ namespace OpenNetQ.Remoting.Abstractions
 
                 if (pair.messageRequestProcessor.IsRejectRequest())
                 {
-                    RemotingCommand response = RemotingCommand.CreateResponseCommand(RemotingSysResponseCode.SYSTEM_BUSY,
+                    RemotingCommand response = RemotingCommand.CreateResponseCommand(
+                        RemotingSysResponseCode.SYSTEM_BUSY,
                         "[REJECTREQUEST]system busy, start flow control for a while");
                     response.Opaque = opaque;
                     ctx.WriteAndFlushAsync(response);
@@ -157,8 +177,9 @@ namespace OpenNetQ.Remoting.Abstractions
                     _log.Error($"task scheduler run error,{e}");
                     if (!cmd.IsOnewayRPC())
                     {
-                        RemotingCommand response = RemotingCommand.CreateResponseCommand(RemotingSysResponseCode.SYSTEM_BUSY,
-                             "[OVERLOAD]system busy, start flow control for a while");
+                        RemotingCommand response = RemotingCommand.CreateResponseCommand(
+                            RemotingSysResponseCode.SYSTEM_BUSY,
+                            "[OVERLOAD]system busy, start flow control for a while");
                         response.Opaque = opaque;
                         ctx.WriteAndFlushAsync(response);
                     }
@@ -167,7 +188,8 @@ namespace OpenNetQ.Remoting.Abstractions
             else
             {
                 var error = $" request type  {cmd.Code} not supported";
-                RemotingCommand? response = RemotingCommand.CreateResponseCommand(RemotingSysResponseCode.REQUEST_CODE_NOT_SUPPORTED, error);
+                RemotingCommand? response =
+                    RemotingCommand.CreateResponseCommand(RemotingSysResponseCode.REQUEST_CODE_NOT_SUPPORTED, error);
 
                 response.Opaque = opaque;
                 ctx.WriteAndFlushAsync(response);
@@ -194,11 +216,14 @@ namespace OpenNetQ.Remoting.Abstractions
             }
             else
             {
-                _log.Warn($"receive response, but not matched any request, {RemotingHelper.ParseChannelRemoteAddr(ctx.Channel)}");
+                _log.Warn(
+                    $"receive response, but not matched any request, {RemotingHelper.ParseChannelRemoteAddr(ctx.Channel)}");
                 _log.Warn($"{cmd}");
             }
         }
+
         public abstract OpenNetQTaskScheduler? GetCallbackExecutor();
+
         private void ExecuteInvokeCallback(ResponseTask responseTask)
         {
             bool runInThisThread = false;
@@ -269,6 +294,53 @@ namespace OpenNetQ.Remoting.Abstractions
             foreach (var rpcHook in RpcHooks)
             {
                 rpcHook.DoAfterResponse(addr, request, response);
+            }
+        }
+
+
+        public void InvokeOnewayImpl(IChannel channel, RemotingCommand request, long timeoutMillis)
+        {
+            request.MarkOnewayRPC();
+            bool acquired = this._semaphoreOneway.Wait(TimeSpan.FromMilliseconds(timeoutMillis));
+            if (acquired)
+            {
+                var once = new SemaphoreReleaseOnlyOnce(this._semaphoreOneway);
+
+
+                try
+                {
+                    channel.WriteAndFlushAsync(request)
+                        .ContinueWith((t, c) =>
+                        {
+                            once.Release();
+                            if (!t.IsCompletedSuccessfully())
+                            {
+                                _log.Warn("send a request command to channel <" +
+                                          RemotingHelper.ParseChannelRemoteAddr(channel) + "> failed.");
+                            }
+                        }, null, TaskContinuationOptions.ExecuteSynchronously);
+                }
+                catch (Exception e)
+                {
+                    once.Release();
+                    _log.Warn($"write send a request command to channel <{channel.RemoteAddress}> failed.");
+                    var address = RemotingHelper.ParseChannelRemoteAddr(channel);
+                    throw new RemotingSendRequestException(address, e);
+                }
+            }
+            else
+            {
+                if (timeoutMillis <= 0)
+                {
+                    throw new RemotingTooMuchRequestException($"{nameof(InvokeOnewayImpl)} invoke too fast");
+                }
+                else
+                {
+                    var info =
+                        $"{nameof(InvokeOnewayImpl)} tryAcquire semaphore timeout, {timeoutMillis}ms, waiting thread nums: {this._semaphoreOneway.CurrentCount} semaphoreOnewayValue: {_permitsOneway}";
+                    _log.Warn(info);
+                    throw new RemotingTimeoutException(info);
+                }
             }
         }
     }
