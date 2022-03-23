@@ -23,6 +23,7 @@ namespace OpenNetQ.Remoting.Netty.Handlers
         }
         public override bool IsSharable => true;
 
+        public event EventHandler<NettyEventArg> OnNettyEventTrigger;
         public override void ChannelRegistered(IChannelHandlerContext context)
         {
             string remoteAddress = RemotingHelper.ParseChannelRemoteAddr(context.Channel);
@@ -42,6 +43,7 @@ namespace OpenNetQ.Remoting.Netty.Handlers
             string remoteAddress = RemotingHelper.ParseChannelRemoteAddr(context.Channel);
             _logger.LogInformation($"NETTY SERVER PIPELINE: ChannelActive, the channel[{remoteAddress}]");
             base.ChannelActive(context);
+            OnNettyEventTrigger.Invoke(this,new NettyEventArg(NettyEventTypeEnum.CONNECT,remoteAddress,context.Channel));
         }
 
         public override void ChannelInactive(IChannelHandlerContext context)
@@ -49,6 +51,7 @@ namespace OpenNetQ.Remoting.Netty.Handlers
             string remoteAddress = RemotingHelper.ParseChannelRemoteAddr(context.Channel);
             _logger.LogInformation($"NETTY SERVER PIPELINE: channelInactive, the channel[{remoteAddress}]");
             base.ChannelInactive(context);
+            OnNettyEventTrigger?.Invoke(this,new NettyEventArg(NettyEventTypeEnum.CLOSE,remoteAddress,context.Channel));
         }
 
         public override void UserEventTriggered(IChannelHandlerContext context, object evt)
@@ -60,6 +63,8 @@ namespace OpenNetQ.Remoting.Netty.Handlers
                     var remoteAddress = RemotingHelper.ParseChannelRemoteAddr(context.Channel);
                     _logger.LogInformation($"NETTY SERVER PIPELINE: IDLE exception [{remoteAddress}]");
                     RemotingUtil.CloseChannel(context.Channel, _logger);
+                    OnNettyEventTrigger?.Invoke(this,new NettyEventArg(NettyEventTypeEnum.IDLE,remoteAddress,context.Channel));
+                    
                 }
             }
             context.FireUserEventTriggered(evt);
@@ -69,7 +74,8 @@ namespace OpenNetQ.Remoting.Netty.Handlers
             string remoteAddress = RemotingHelper.ParseChannelRemoteAddr(context.Channel);
             _logger.LogError($"NETTY SERVER PIPELINE: exceptionCaught {remoteAddress}");
             _logger.LogError(exception, "NETTY SERVER PIPELINE: exceptionCaught exception.");
-            RemotingUtil.CloseChannel(context.Channel);
+            OnNettyEventTrigger?.Invoke(this,new NettyEventArg(NettyEventTypeEnum.EXCEPTION,remoteAddress,context.Channel));
+            RemotingUtil.CloseChannel(context.Channel,_logger);
         }
     }
 }

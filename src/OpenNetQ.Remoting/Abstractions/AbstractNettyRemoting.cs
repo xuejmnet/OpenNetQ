@@ -22,9 +22,11 @@ namespace OpenNetQ.Remoting.Abstractions
 {
     public abstract class AbstractNettyRemoting
     {
+        private readonly RemotingServerOption _serverOption;
         private readonly int _permitsOneway;
         private readonly int _permitsAsync;
         private static IInternalNetQLogger _log = InternalNetQLoggerFactory.GetLogger<AbstractNettyRemoting>();
+        private readonly ILogger<AbstractNettyRemoting> _logger;
         private readonly SemaphoreSlim _semaphoreOneway;
         private readonly SemaphoreSlim _semaphoreAsync;
         protected readonly Dictionary<int, (INettyRequestProcessor, OpenNetQTaskScheduler)> ProcessorTables = new(64);
@@ -40,27 +42,32 @@ namespace OpenNetQ.Remoting.Abstractions
 
         protected NettyEventExecutor NettyEventExecutor = new NettyEventExecutor();
 
-        public AbstractNettyRemoting(int permitsOneway, int permitsAsync)
+        public AbstractNettyRemoting(LoggerFactory loggerFactory,RemotingServerOption serverOption)
         {
-            _permitsOneway = permitsOneway;
-            _permitsAsync = permitsAsync;
+            _logger = loggerFactory.CreateLogger<AbstractNettyRemoting>();
+            _serverOption = serverOption;
+            _permitsOneway = serverOption.PermitsOneway;
+            _permitsAsync = serverOption.PermitsAsync;
 
-            _semaphoreAsync = new SemaphoreSlim(Math.Max(1, permitsAsync));
-            _semaphoreOneway = new SemaphoreSlim(Math.Max(1, permitsOneway));
+            _semaphoreAsync = new SemaphoreSlim(Math.Max(1, _permitsAsync));
+            _semaphoreOneway = new SemaphoreSlim(Math.Max(1, _permitsOneway));
         }
 
-        public void PutNettyEvent(NettyEventArg eventArg)
+        public void OnNettyEventTrigger(object? sender,NettyEventArg eventArg)
         {
             this.NettyEventExecutor.PutNettyEvent(eventArg);
         }
 
+       
         /// <summary>
         /// 处理收到的消息
         /// </summary>
-        /// <param name="ctx"></param>
-        /// <param name="cmd"></param>
-        public void ProcessMessageReceived(IChannelHandlerContext ctx, RemotingCommand? cmd)
+        /// <param name="sender"></param>
+        /// <param name="messageEventArg"></param>
+        public void OnProcessMessageReceived(object? sender,MessageEventArg messageEventArg)
         {
+            var cmd = messageEventArg.RemotingCommand;
+            var ctx = messageEventArg.ChannelHandlerContext;
             if (cmd != null)
             {
 

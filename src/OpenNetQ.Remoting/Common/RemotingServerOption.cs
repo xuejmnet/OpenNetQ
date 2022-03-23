@@ -43,6 +43,8 @@ namespace OpenNetQ.Remoting.Common
         /// </summary>
         public X509Certificate2? TlsCertificate { get; set; }
 
+        public int ServerCallbackExecutorThreads { get; set; } = 4;
+
         public bool UseTls()
         {
             return TlsCertificate != null;

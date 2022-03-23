@@ -70,6 +70,11 @@ namespace OpenNetQ.TaskSchedulers
             _maxThreadCount = maxThreadCount;
             CreateCoreThreads(coreThreadCount);
         }
+
+        public OpenNetQTaskScheduler(int threadCount) : this(threadCount, threadCount)
+        {
+            
+        }
         #endregion
 
         #region override GetScheduledTasks
