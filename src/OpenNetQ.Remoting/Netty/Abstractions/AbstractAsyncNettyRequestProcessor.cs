@@ -8,7 +8,7 @@ using OpenNetQ.Remoting.Protocol;
 
 namespace OpenNetQ.Remoting.Netty.Abstractions
 {
-    public abstract class AbstractAsyncMessageRequestProcessor : IMessageRequestProcessor
+    public abstract class AbstractAsyncNettyRequestProcessor : INettyRequestProcessor
     {
         public abstract RemotingCommand ProcessRequest(IChannelHandlerContext ctx, RemotingCommand request);
         public abstract bool IsRejectRequest();

@@ -8,6 +8,7 @@ using DotNetty.Transport.Channels;
 using OpenNetQ.Concurrent;
 using OpenNetQ.Core;
 using OpenNetQ.Remoting.Protocol;
+using OpenNetQ.Utils;
 
 namespace OpenNetQ.Remoting.Netty
 {
@@ -21,7 +22,7 @@ namespace OpenNetQ.Remoting.Netty
         private readonly CountdownEvent _countdownEvent = new CountdownEvent(1);
         private volatile bool _isOk;
         private volatile RemotingCommand? _responseCommand;
-        private volatile Exception _exception;
+        private volatile Exception? _exception;
         private readonly long _beginTimestamp = DateTimeOffset.Now.ToUnixTimeMilliseconds();
         private readonly SemaphoreReleaseOnlyOnce _once;
         private readonly DoOnlyOnce _callbackDoOnlyOnce = new DoOnlyOnce();
@@ -80,7 +81,7 @@ namespace OpenNetQ.Remoting.Netty
             _responseCommand = cmd;
         }
 
-        public void SetException(Exception exception)
+        public void SetException(Exception? exception)
         {
             _exception = exception;
         }
@@ -90,9 +91,9 @@ namespace OpenNetQ.Remoting.Netty
             return _exception;
         }
 
-        public bool IsTimeOut()
+        public bool IsTimeOut(TimeSpan delay)
         {
-            var diff = DateTimeOffset.Now.ToUnixTimeMilliseconds() - _beginTimestamp;
+            var diff = TimeUtil.CurrentTimeMillis() - _beginTimestamp- delay.TotalMilliseconds;
             return diff > _timeoutMillis;
         }
 

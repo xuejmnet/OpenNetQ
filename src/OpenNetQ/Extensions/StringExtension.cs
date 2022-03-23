@@ -11,15 +11,15 @@ namespace OpenNetQ.Extensions
 {
     public static class StringExtension
     {
-        public static bool IsNullOrEmpty(this string value)
+        public static bool IsNullOrEmpty(this string? value)
         {
             return string.IsNullOrEmpty(value);
         }
-        public static bool NoNullOrEmpty(this string value)
+        public static bool NoNullOrEmpty(this string? value)
         {
             return !value.IsNullOrEmpty();
         }
-        public static byte[] GetBytes(this string value, Encoding encoding)
+        public static byte[] GetBytes(this string? value, Encoding encoding)
         {
             if (value == null)
                 throw new ArgumentNullException(nameof (value));

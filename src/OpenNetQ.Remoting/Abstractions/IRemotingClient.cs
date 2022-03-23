@@ -14,13 +14,11 @@ namespace OpenNetQ.Remoting.Abstractions
         void UpdateNameServerAddressList(ICollection<string> addrs);
        
         ICollection<string> GetNameServerAddressList();
-        RemotingCommand Invoke(string addr, RemotingCommand request, long timeoutMillis);
-        Task<RemotingCommand> InvokeAync(string addr, RemotingCommand request, long timeoutMillis);
-        void InvokeCallback(string addr, RemotingCommand request, long timeoutMillis,Action<ResponseTask> callback);
-        Task InvokeOnewayAsync(string addr, RemotingCommand request, long timeoutMillis);
+        Task<RemotingCommand> InvokeAsync(string addr, RemotingCommand request, long timeoutMillis, CancellationToken cancellationToken = new CancellationToken());
+        Task InvokeCallbackAsync(string addr, RemotingCommand request, long timeoutMillis,Action<ResponseTask> callback, CancellationToken cancellationToken = new CancellationToken());
+        Task InvokeOnewayAsync(string addr, RemotingCommand request, long timeoutMillis, CancellationToken cancellationToken = new CancellationToken());
 
-        void SendOneway(RemotingCommand command, long timeoutMillis);
-        void RegisterProcessor(int requestCode, IMessageRequestProcessor processor);
+        void RegisterProcessor(int requestCode, INettyRequestProcessor processor);
         bool IsChannelWritable(string addr);
     }
 }

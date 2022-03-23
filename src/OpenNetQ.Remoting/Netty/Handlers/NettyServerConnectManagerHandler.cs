@@ -1,0 +1,75 @@
+using DotNetty.Handlers.Timeout;
+using DotNetty.Transport.Channels;
+using Microsoft.Extensions.Logging;
+using OpenNetQ.Remoting.Common;
+
+namespace OpenNetQ.Remoting.Netty.Handlers
+{
+    /*
+    * @Author: xjm
+    * @Description:
+    * @Date: Friday, 13 November 2020 17:07:38
+    * @Email: 326308290@qq.com
+    */
+    /// <summary>
+    /// 同时处理出入栈事件
+    /// </summary>
+    public class NettyServerConnectManagerHandler : ChannelDuplexHandler
+    {
+        private readonly ILogger<NettyServerConnectManagerHandler> _logger;
+        public NettyServerConnectManagerHandler(LoggerFactory loggerFactory)
+        {
+            _logger = loggerFactory.CreateLogger<NettyServerConnectManagerHandler>();
+        }
+        public override bool IsSharable => true;
+
+        public override void ChannelRegistered(IChannelHandlerContext context)
+        {
+            string remoteAddress = RemotingHelper.ParseChannelRemoteAddr(context.Channel);
+            _logger.LogInformation($"NETTY SERVER PIPELINE: ChannelRegistered {remoteAddress}");
+            base.ChannelRegistered(context);
+        }
+
+        public override void ChannelUnregistered(IChannelHandlerContext context)
+        {
+            string remoteAddress = RemotingHelper.ParseChannelRemoteAddr(context.Channel);
+            _logger.LogInformation($"NETTY SERVER PIPELINE: ChannelUnregistered, the channel[{remoteAddress}]");
+            base.ChannelUnregistered(context);
+        }
+
+        public override void ChannelActive(IChannelHandlerContext context)
+        {
+            string remoteAddress = RemotingHelper.ParseChannelRemoteAddr(context.Channel);
+            _logger.LogInformation($"NETTY SERVER PIPELINE: ChannelActive, the channel[{remoteAddress}]");
+            base.ChannelActive(context);
+        }
+
+        public override void ChannelInactive(IChannelHandlerContext context)
+        {
+            string remoteAddress = RemotingHelper.ParseChannelRemoteAddr(context.Channel);
+            _logger.LogInformation($"NETTY SERVER PIPELINE: channelInactive, the channel[{remoteAddress}]");
+            base.ChannelInactive(context);
+        }
+
+        public override void UserEventTriggered(IChannelHandlerContext context, object evt)
+        {
+            if (evt is IdleStateEvent @event)
+            {
+                if (@event.State == IdleState.AllIdle)
+                {
+                    var remoteAddress = RemotingHelper.ParseChannelRemoteAddr(context.Channel);
+                    _logger.LogInformation($"NETTY SERVER PIPELINE: IDLE exception [{remoteAddress}]");
+                    RemotingUtil.CloseChannel(context.Channel, _logger);
+                }
+            }
+            context.FireUserEventTriggered(evt);
+        }
+        public override void ExceptionCaught(IChannelHandlerContext context, Exception exception)
+        {
+            string remoteAddress = RemotingHelper.ParseChannelRemoteAddr(context.Channel);
+            _logger.LogError($"NETTY SERVER PIPELINE: exceptionCaught {remoteAddress}");
+            _logger.LogError(exception, "NETTY SERVER PIPELINE: exceptionCaught exception.");
+            RemotingUtil.CloseChannel(context.Channel);
+        }
+    }
+}

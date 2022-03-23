@@ -28,9 +28,9 @@ namespace OpenNetQ.Remoting.Protocol
             SerializeTypeConfigInThisServer = SerializeTypeEnum.JSON;
         }
 
-        public int Code { get; set; }
+        public short Code { get; set; }
         public LanguageCodeEnum Language { get; set; } = LanguageCodeEnum.DOTNET;
-        public int Version { get; set; } = 0;
+        public short Version { get; set; } = 0;
         public int Opaque { get; set; } = requestId.GetAndIncrement();
         public int Flag { get; set; }
         public string? Remark { get; set; }
@@ -186,6 +186,112 @@ namespace OpenNetQ.Remoting.Protocol
 
             return RemotingCommandType.REQUEST_COMMAND;
         }
+        public static RemotingCommand Decode(byte[] array)
+        {
+            ByteBuffer byteBuffer = ByteBuffer.Wrap(array);
+            return Decode(byteBuffer);
+        }
+
+        public static int GetHeaderLength(int length)
+        {
+            return length & 0xFFFFFF;
+        }
+        public static SerializeTypeEnum GetProtocolType(int source)
+        {
+            return (SerializeTypeEnum)((byte)((source >> 24) & 0xFF));
+        }
+        private static RemotingCommand HeaderDecode(byte[] headerData, SerializeTypeEnum type)
+        {
+            RemotingCommand resultONQ = OpenNetQSerializable.OpenNetQProtocolDecode(headerData);
+            resultONQ.SerializeTypeCurrentRPC = SerializeTypeEnum.OPENNETQ;
+            return resultONQ;
+        }
+        public static RemotingCommand Decode(ByteBuffer byteBuffer)
+        {
+            int length = byteBuffer.Limit;
+            int oriHeaderLen = byteBuffer.GetInt32();
+            int headerLength = GetHeaderLength(oriHeaderLen);
+
+            byte[] headerData = new byte[headerLength];
+            byteBuffer.Get(headerData);
+
+            RemotingCommand cmd = HeaderDecode(headerData, GetProtocolType(oriHeaderLen));
+
+            int bodyLength = length - 4 - headerLength;
+            byte[]? bodyData = null;
+            if (bodyLength > 0)
+            {
+                bodyData = new byte[bodyLength];
+                byteBuffer.Get(bodyData);
+            }
+            cmd.Body = bodyData;
+
+            return cmd;
+        }
+
+        public ByteBuffer Encode()
+        {
+            // 1> header length size
+            int length = 4;
+
+            // 2> header data length
+            byte[] headerData = this.HeaderEncode();
+            length += headerData.Length;
+
+            // 3> body data length
+            if (this.Body != null)
+            {
+                length += Body.Length;
+            }
+
+            ByteBuffer result = ByteBuffer.Allocate(4 + length);
+
+            // length
+            result.PutInt32(length);
+
+            // header length
+            result.Put(MarkProtocolType(headerData.Length, SerializeTypeCurrentRPC));
+
+            // header data
+            result.Put(headerData);
+
+            // body data;
+            if (this.Body != null)
+            {
+                result.Put(this.Body);
+            }
+
+            result.Flip();
+            return result;
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public byte[] HeaderEncode()
+        {
+            MakeCustomHeaderToNet();
+            if (SerializeTypeEnum.OPENNETQ == SerializeTypeCurrentRPC)
+            {
+                return OpenNetQSerializable.OpenNetQProtocolEncode(this);
+            }
+            else
+            {
+                return RemotingSerializable.Encode(this);
+            }
+
+        }
+
+        public void MakeCustomHeaderToNet()
+        {
+            if (this.CustomHeader != null)
+            {
+                if (ExtFields == null)
+                {
+                    ExtFields = new Dictionary<string, string?>();
+                }
+            }
+        }
 
         public ByteBuffer EncodeHeader()
         {
@@ -204,7 +310,6 @@ namespace OpenNetQ.Remoting.Protocol
             {
                 length += Body.Length;
             }
-
             ByteBuffer result = ByteBuffer.Allocate(4 + length);
 
             // length
@@ -236,34 +341,6 @@ namespace OpenNetQ.Remoting.Protocol
             result[2] = (byte)((source >> 8) & 0xFF);
             result[3] = (byte)(source & 0xFF);
             return result;
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public byte[] HeaderEncode()
-        {
-            MakeCustomHeaderToNet();
-            if (SerializeTypeEnum.OPENNETQ == SerializeTypeCurrentRPC)
-            {
-                return OpenNetQSerializable.OpenNetQProtocolEncode(this);
-            }
-            else
-            {
-                return RemotingSerializable.Encode(this);
-            }
-
-        }
-
-        public void MakeCustomHeaderToNet()
-        {
-            if (this.CustomHeader != null)
-            {
-                if (ExtFields == null)
-                {
-                    ExtFields = new Dictionary<string, string>();
-                }
-            }
         }
     }
 }

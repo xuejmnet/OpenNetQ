@@ -11,19 +11,13 @@ namespace OpenNetQ.Remoting.Exceptions;
 */
 public class RemotingTimeoutException:RemotingException
 {
-    public RemotingTimeoutException()
+    public RemotingTimeoutException(string addr, long timeoutMillis, Exception exception) : base($"wait response on the channel <{addr}> timeout, {timeoutMillis}(ms)", exception)
     {
     }
-
-    protected RemotingTimeoutException(SerializationInfo info, StreamingContext context) : base(info, context)
+    public RemotingTimeoutException(string addr, long timeoutMillis) : base($"wait response on the channel <{addr}> timeout, {timeoutMillis}(ms)", null)
     {
     }
-
-    public RemotingTimeoutException(string? message) : base(message)
-    {
-    }
-
-    public RemotingTimeoutException(string? message, Exception? innerException) : base(message, innerException)
+    public RemotingTimeoutException(string message) : base(message)
     {
     }
 }

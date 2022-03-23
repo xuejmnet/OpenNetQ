@@ -1,5 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
+using DotNetty.Transport.Channels;
+using Microsoft.Extensions.Logging;
 
 namespace OpenNetQ.Remoting.Common;
 
@@ -13,4 +15,16 @@ public class RemotingUtil
 {
     private static readonly bool isLinuxPlatform = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
     private static readonly bool isWindowsPlatform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+
+    public static void CloseChannel(IChannel? channel,ILogger logger)
+    {
+        if (channel != null)
+        {
+            string addrRemote = RemotingHelper.ParseChannelRemoteAddr(channel);
+            channel.CloseAsync()
+                .ContinueWith((t, c) => logger.LogInformation($"closeChannel: close the connection to remote address[{addrRemote}] result: {t.IsCompleted}"),
+                    null, TaskContinuationOptions.ExecuteSynchronously);
+        }
+    }
 }

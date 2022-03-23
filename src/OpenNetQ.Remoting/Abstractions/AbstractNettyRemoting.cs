@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using DotNetty.Transport.Channels;
@@ -15,6 +16,7 @@ using OpenNetQ.Remoting.Netty;
 using OpenNetQ.Remoting.Netty.Abstractions;
 using OpenNetQ.Remoting.Protocol;
 using OpenNetQ.TaskSchedulers;
+using OpenNetQ.Utils;
 
 namespace OpenNetQ.Remoting.Abstractions
 {
@@ -25,11 +27,11 @@ namespace OpenNetQ.Remoting.Abstractions
         private static IInternalNetQLogger _log = InternalNetQLoggerFactory.GetLogger<AbstractNettyRemoting>();
         private readonly SemaphoreSlim _semaphoreOneway;
         private readonly SemaphoreSlim _semaphoreAsync;
-        protected readonly Dictionary<int, (IMessageRequestProcessor, OpenNetQTaskScheduler)> ProcessorTables = new(64);
+        protected readonly Dictionary<int, (INettyRequestProcessor, OpenNetQTaskScheduler)> ProcessorTables = new(64);
 
         protected readonly ConcurrentDictionary<int, ResponseTask> ResponseTables = new(31, 256);
 
-        protected (IMessageRequestProcessor, OpenNetQTaskScheduler) DefaultRequestProcessor { get; set; }
+        protected (INettyRequestProcessor, OpenNetQTaskScheduler) DefaultRequestProcessor { get; set; }
 
         /**
          * custom rpc hooks
@@ -38,7 +40,7 @@ namespace OpenNetQ.Remoting.Abstractions
 
         protected NettyEventExecutor NettyEventExecutor = new NettyEventExecutor();
 
-        public AbstractNettyRemoting(ChannelEventListener listener, int permitsOneway, int permitsAsync)
+        public AbstractNettyRemoting(int permitsOneway, int permitsAsync)
         {
             _permitsOneway = permitsOneway;
             _permitsAsync = permitsAsync;
@@ -83,9 +85,9 @@ namespace OpenNetQ.Remoting.Abstractions
         /// <param name="cmd"></param>
         public void ProcessRequestCommand(IChannelHandlerContext ctx, RemotingCommand cmd)
         {
-            (IMessageRequestProcessor messageRequestProcessor, OpenNetQTaskScheduler openNetQTaskScheduler) pair =
+            (INettyRequestProcessor messageRequestProcessor, OpenNetQTaskScheduler openNetQTaskScheduler) pair =
                 default;
-            if (!ProcessorTables.TryGetValue(cmd.Code, out (IMessageRequestProcessor, OpenNetQTaskScheduler) matched))
+            if (!ProcessorTables.TryGetValue(cmd.Code, out (INettyRequestProcessor, OpenNetQTaskScheduler) matched))
             {
                 pair = DefaultRequestProcessor;
             }
@@ -128,7 +130,7 @@ namespace OpenNetQ.Remoting.Abstractions
                                 }
                             }
                         };
-                        if (pair.messageRequestProcessor is AbstractAsyncMessageRequestProcessor
+                        if (pair.messageRequestProcessor is AbstractAsyncNettyRequestProcessor
                             asyncMessageRequestProcessor)
                         {
                             asyncMessageRequestProcessor.AsyncProcessRequest(ctx, cmd, callback);
@@ -296,14 +298,144 @@ namespace OpenNetQ.Remoting.Abstractions
             }
         }
 
+        public void ScanResponseTables()
+        {
+            LinkedList<ResponseTask> rtList = new LinkedList<ResponseTask>();
+            var keys = new List<int>(ResponseTables.Keys);
+            var enumerator = keys.GetEnumerator();
+            while (enumerator.MoveNext())
+            {
+                var opaque = enumerator.Current;
+                if (ResponseTables.TryGetValue(opaque, out var rep))
+                {
+                    if (rep.IsTimeOut(TimeSpan.FromMilliseconds(1000)))
+                    {
+                        rep.Release();
+                        ResponseTables.TryRemove(opaque, out var v);
+                        rtList.AddLast(rep);
+                        _log.Warn($"remove timeout request, {rep}");
+                    }
+                }
+            }
+            foreach (var responseTask in rtList)
+            {
+                try
+                {
+                    ExecuteInvokeCallback(responseTask);
+                }
+                catch (Exception e)
+                {
+                    _log.Warn($"scanResponseTable, operationComplete Exception", e);
+                }
+            }
+        }
+
+        public async Task<RemotingCommand> InvokeSyncImpl(IChannel channel, RemotingCommand request, long timeoutMillis)
+        {
+            int opaque = request.Opaque;
+
+            var addr = channel.RemoteAddress;
+            ResponseTask responseTask = new ResponseTask(channel, opaque, timeoutMillis, null, null);
+            ResponseTables.TryAdd(opaque, responseTask);
+            try
+            {
+                _ = channel.WriteAndFlushAsync(request)
+                     .ContinueWith((t, c) =>
+                     {
+                         responseTask.SetSendResponseOk(t.IsCompletedSuccessfully());
+                         if (t.IsCompletedSuccessfully())
+                         {
+                             return;
+                         }
+
+                         ResponseTables.TryRemove(opaque, out var v);
+                         responseTask.SetException(t.Exception);
+                         responseTask.AddResponse(null);
+                         _log.Warn($"send a request command to channel <{RemotingHelper.ParseChannelRemoteAddr(channel)}> failed.");
+                     }, null);
+
+                var response = responseTask.WaitResponse();
+                if (null == response)
+                {
+                    if (responseTask.IsSendResponseOk())
+                    {
+                        throw new RemotingTimeoutException(RemotingHelper.ParseSocketAddress(addr), timeoutMillis, responseTask.GetException());
+                    }
+                    else
+                    {
+                        throw new RemotingSendRequestException(RemotingHelper.ParseSocketAddress(addr), responseTask.GetException());
+                    }
+                }
+
+                return response;
+            }
+            finally
+            {
+                ResponseTables.TryRemove(opaque, out var v);
+            }
+        }
+        public async Task InvokeAsyncImpl(IChannel channel, RemotingCommand request, long timeoutMillis,
+            Action<ResponseTask> callback)
+        {
+            long beginStartTime = TimeUtil.CurrentTimeMillis();
+            int opaque = request.Opaque;
+            bool acquired = await this._semaphoreAsync.WaitAsync(TimeSpan.FromMilliseconds(timeoutMillis));
+            if (acquired)
+            {
+                var once = new SemaphoreReleaseOnlyOnce(this._semaphoreAsync);
+                long costTime = TimeUtil.CurrentTimeMillis() - beginStartTime;
+                if (timeoutMillis < costTime)
+                {
+                    once.Release();
+                    throw new RemotingTimeoutException("invokeAsyncImpl call timeout");
+                }
+
+                var responseTask = new ResponseTask(channel, opaque, timeoutMillis - costTime, callback, once);
+                ResponseTables.TryAdd(opaque, responseTask);
+                try
+                {
+                    _ = channel.WriteAndFlushAsync(request)
+                        .ContinueWith((t, c) =>
+                        {
+                            if (t.IsCompletedSuccessfully())
+                            {
+                                responseTask.SetSendResponseOk(true);
+                                return;
+                            }
+
+                            RequestFail(opaque);
+                            _log.Warn($"send a request command to channel <{RemotingHelper.ParseChannelRemoteAddr(channel)}> failed.");
+                        }, null);
+                }
+                catch (Exception e)
+                {
+                    responseTask.Release();
+                    var address = RemotingHelper.ParseChannelRemoteAddr(channel);
+                    _log.Warn($"send a request command to channel < {address} > Exception", e);
+                    throw new RemotingSendRequestException(address, e);
+                }
+            }
+            else
+            {
+                if (timeoutMillis <= 0)
+                {
+                    throw new RemotingTooMuchRequestException("invokeAsyncImpl invoke too fast");
+                }
+                else
+                {
+                    string info = $"{nameof(InvokeAsyncImpl)} tryAcquire semaphore timeout, {timeoutMillis}ms, waiting thread nums: {this._semaphoreAsync.CurrentCount} semaphoreAsyncValue: {_permitsAsync}";
+                    _log.Warn(info);
+                    throw new RemotingTimeoutException(info);
+                }
+            }
+        }
         protected void FailFast(IChannel channel)
         {
-            ResponseTables.FirstOrDefault(o => Equals(o.Value.GetChannel(), channel)).var;
             var enumerator = ResponseTables.GetEnumerator();
             while (enumerator.MoveNext())
             {
                 var keyValuePair = enumerator.Current;
-                if(Equals(keyValuePair.Value.GetChannel(),channel))
+                if (Equals(keyValuePair.Value.GetChannel(), channel))
                 {
                     var opaque = keyValuePair.Key;
                     RequestFail(opaque);
@@ -311,7 +443,8 @@ namespace OpenNetQ.Remoting.Abstractions
             }
         }
 
-        private void RequestFail(int opaque) {
+        private void RequestFail(int opaque)
+        {
             if (ResponseTables.TryRemove(opaque, out var responseTask))
             {
                 responseTask.SetSendResponseOk(false);
@@ -333,27 +466,25 @@ namespace OpenNetQ.Remoting.Abstractions
 
 
 
-        public void InvokeOnewayImpl(IChannel channel, RemotingCommand request, long timeoutMillis)
+        public async Task InvokeOnewayImpl(IChannel channel, RemotingCommand request, long timeoutMillis)
         {
             request.MarkOnewayRPC();
-            bool acquired = this._semaphoreOneway.Wait(TimeSpan.FromMilliseconds(timeoutMillis));
+            bool acquired = await this._semaphoreOneway.WaitAsync(TimeSpan.FromMilliseconds(timeoutMillis));
             if (acquired)
             {
                 var once = new SemaphoreReleaseOnlyOnce(this._semaphoreOneway);
 
-
                 try
                 {
-                    channel.WriteAndFlushAsync(request)
-                        .ContinueWith((t, c) =>
-                        {
-                            once.Release();
-                            if (!t.IsCompletedSuccessfully())
-                            {
-                                _log.Warn("send a request command to channel <" +
-                                          RemotingHelper.ParseChannelRemoteAddr(channel) + "> failed.");
-                            }
-                        }, null, TaskContinuationOptions.ExecuteSynchronously);
+                    _ = channel.WriteAndFlushAsync(request)
+                         .ContinueWith((t, c) =>
+                         {
+                             once.Release();
+                             if (!t.IsCompletedSuccessfully())
+                             {
+                                 _log.Warn($"send a request command to channel <{RemotingHelper.ParseChannelRemoteAddr(channel)}> failed.");
+                             }
+                         }, null);
                 }
                 catch (Exception e)
                 {
