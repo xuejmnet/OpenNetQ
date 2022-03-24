@@ -10,6 +10,7 @@ using OpenNetQ.Broker.Client;
 using OpenNetQ.Broker.Client.Net;
 using OpenNetQ.Broker.Filter;
 using OpenNetQ.Broker.FilterServer;
+using OpenNetQ.Broker.Latency;
 using OpenNetQ.Broker.Longpolling;
 using OpenNetQ.Broker.Offset;
 using OpenNetQ.Broker.Out;
@@ -20,6 +21,7 @@ using OpenNetQ.Broker.Subscription;
 using OpenNetQ.Broker.Topic;
 using OpenNetQ.Common.Options;
 using OpenNetQ.Remoting.Common;
+using OpenNetQ.Store;
 using OpenNetQ.Store.Common;
 using OpenNetQ.TaskSchedulers;
 
@@ -50,6 +52,8 @@ namespace OpenNetQ.Broker
         private readonly IFilterServerManager _filterServerManager;
         private readonly ISlaveSynchronize _slaveSynchronize;
         private readonly IBrokerStatsManager _brokerStatsManager;
+        private readonly IBrokerFastFailure _brokerFastFailure;
+        private  readonly IMessageStore _messageStore;
 
         #region alone thread pool
 
@@ -90,7 +94,9 @@ namespace OpenNetQ.Broker
             _filterServerManager = GetRequiredService<IFilterServerManager>();
             _slaveSynchronize = GetRequiredService<ISlaveSynchronize>();
             _brokerStatsManager = GetRequiredService<IBrokerStatsManager>();
-}
+            _brokerFastFailure = GetRequiredService<IBrokerFastFailure>();
+            _messageStore = GetRequiredService<IMessageStore>();
+        }
 
         public void Initialize()
         {
