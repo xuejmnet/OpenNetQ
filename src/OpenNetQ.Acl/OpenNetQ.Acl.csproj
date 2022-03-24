@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\OpenNetQ.ServerUtil\OpenNetQ.ServerUtil.csproj" />
+  </ItemGroup>
+
 </Project>

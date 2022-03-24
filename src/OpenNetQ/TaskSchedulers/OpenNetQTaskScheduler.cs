@@ -22,6 +22,7 @@ namespace OpenNetQ.TaskSchedulers
         private ConcurrentQueue<Task> _tasks = new ConcurrentQueue<Task>();
         private int _coreThreadCount = 0;
         private int _maxThreadCount = 0;
+        private readonly string? _threadNamePrefix;
         private int _auxiliaryThreadTimeOut = 20000; //辅助线程释放时间
         private int _activeThreadCount = 0;
         private System.Timers.Timer _timer;
@@ -64,16 +65,15 @@ namespace OpenNetQ.TaskSchedulers
         /// </summary>
         /// <param name="coreThreadCount">核心线程数(大于或等于0，不宜过大)(如果是一次性使用，则设置为0比较合适)</param>
         /// <param name="maxThreadCount">最大线程数</param>
-        public OpenNetQTaskScheduler(int coreThreadCount = 10, int maxThreadCount = 20)
+        /// <param name="auxiliaryThreadTimeOut">辅助线程释放时间</param>
+        /// <param name="threadNamePrefix">线程名称前缀</param>
+        public OpenNetQTaskScheduler(int coreThreadCount = 10, int maxThreadCount = 20,int auxiliaryThreadTimeOut = 2000,string? threadNamePrefix=null)
         {
             _sem = new SemaphoreSlim(0, _semMaxCount);
+            _auxiliaryThreadTimeOut = auxiliaryThreadTimeOut;
             _maxThreadCount = maxThreadCount;
+            _threadNamePrefix = threadNamePrefix;
             CreateCoreThreads(coreThreadCount);
-        }
-
-        public OpenNetQTaskScheduler(int threadCount) : this(threadCount, threadCount)
-        {
-            
         }
         #endregion
 
@@ -175,6 +175,10 @@ namespace OpenNetQ.TaskSchedulers
                         }
                     }
                 }));
+                if (null != _threadNamePrefix)
+                {
+                    thread.Name = $"{_threadNamePrefix}{_activeThreadCount}";
+                }
                 thread.IsBackground = true;
                 thread.Start();
             }
@@ -218,6 +222,10 @@ namespace OpenNetQ.TaskSchedulers
                     }
                 }
             }));
+            if (null != _threadNamePrefix)
+            {
+                thread.Name = $"{_threadNamePrefix}{_activeThreadCount}";
+            }
             thread.IsBackground = true;
             thread.Start();
         }

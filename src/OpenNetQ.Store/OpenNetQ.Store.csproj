@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Common" />
+    <ProjectReference Include="..\OpenNetQ.Common\OpenNetQ.Common.csproj" />
   </ItemGroup>
 
 </Project>
