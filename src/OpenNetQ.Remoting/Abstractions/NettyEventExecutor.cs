@@ -14,7 +14,7 @@ namespace OpenNetQ.Remoting.Abstractions
     {
         private static readonly IInternalNetQLogger _log = InternalNetQLoggerFactory.GetLogger<NettyEventExecutor>();
         private readonly BlockingCollection<NettyEventArg> eventQueue =
-            new BlockingCollection<NettyEventArg>();
+            new BlockingCollection<NettyEventArg>(new ConcurrentQueue<NettyEventArg>());
         private readonly int maxSize = 10000;
 
         public void PutNettyEvent(NettyEventArg eventArg)
