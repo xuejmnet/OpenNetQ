@@ -36,7 +36,7 @@ namespace OpenNetQ.Common.Options
 
         public int AdminBrokerThreadPoolCount { get; set; } = 16;
         public int ClientManageThreadPoolCount { get; set; } = 32;
-        public int ConsumeManageThreadPoolCount { get; set; } = 32;
+        public int ConsumerManageThreadPoolCount { get; set; } = 32;
         public int HeartbeatThreadPoolCount { get; set; } = Math.Min(Environment.ProcessorCount, 32);
         public int EndTransactionThreadPoolCount =>  Math.Max(8 + Environment.ProcessorCount * 2,
             SendMessageThreadPoolCount * 4);
