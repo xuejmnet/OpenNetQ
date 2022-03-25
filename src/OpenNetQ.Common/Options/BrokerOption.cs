@@ -50,5 +50,7 @@ namespace OpenNetQ.Common.Options
         public int FlushConsumerOffsetHistoryInterval = 1000 * 60;
 
         public bool RejectTransactionMessage = false;
+
+        public bool EnableDLegerCommitLog { get; set; } = false;
     }
 }

@@ -16,7 +16,7 @@ namespace OpenNetQ
             ServiceProvider = serviceProvider;
         }
         protected TService? GetService<TService>() => ServiceProvider.GetService<TService>();
-        protected TService GetRequiredService<TService>() => ServiceProvider.GetRequiredService<TService>();
+        protected TService GetRequiredService<TService>() where TService : notnull => ServiceProvider.GetRequiredService<TService>();
         
         protected TService LazyGet<TService>(ref TService reference)
             => LazyTypeGet(typeof(TService), ref reference);

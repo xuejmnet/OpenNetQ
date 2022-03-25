@@ -12,6 +12,7 @@ using OpenNetQ.Broker.Filter;
 using OpenNetQ.Broker.FilterServer;
 using OpenNetQ.Broker.Latency;
 using OpenNetQ.Broker.Longpolling;
+using OpenNetQ.Broker.MqTrace;
 using OpenNetQ.Broker.Offset;
 using OpenNetQ.Broker.Out;
 using OpenNetQ.Broker.Processor;
@@ -20,6 +21,8 @@ using OpenNetQ.Broker.Stats;
 using OpenNetQ.Broker.Subscription;
 using OpenNetQ.Broker.Topic;
 using OpenNetQ.Common.Options;
+using OpenNetQ.Common.Protocol;
+using OpenNetQ.Remoting.Abstractions;
 using OpenNetQ.Remoting.Common;
 using OpenNetQ.Store;
 using OpenNetQ.Store.Common;
@@ -54,6 +57,7 @@ namespace OpenNetQ.Broker
         private readonly IBrokerStatsManager _brokerStatsManager;
         private readonly IBrokerFastFailure _brokerFastFailure;
         private  readonly IMessageStore _messageStore;
+        private  readonly IRemotingServer _remotingServer;
 
         #region alone thread pool
 
@@ -68,6 +72,10 @@ namespace OpenNetQ.Broker
         private  OpenNetQTaskScheduler _endTransactionScheduler;
         private  OpenNetQTaskScheduler _consumerManageScheduler;
         #endregion
+
+
+        private readonly ICollection<ISendMessageHook> sendMessageHooks = new List<ISendMessageHook>();
+        private readonly ICollection<IConsumeMessageHook> consumeMessageHooks = new List<IConsumeMessageHook>();
 
         public BrokerController(IServiceProvider serviceProvider):base(serviceProvider)
         {
@@ -96,10 +104,18 @@ namespace OpenNetQ.Broker
             _brokerStatsManager = GetRequiredService<IBrokerStatsManager>();
             _brokerFastFailure = GetRequiredService<IBrokerFastFailure>();
             _messageStore = GetRequiredService<IMessageStore>();
+            _remotingServer = GetRequiredService<IRemotingServer>();
         }
 
         public void Initialize()
         {
+            if (_brokerOption.EnableDLegerCommitLog)
+            {
+                throw new NotImplementedException("DLegerCommitLog");
+            }
+            //TODO  MESSAGE STORE load plugin
+            _messageStore.GetDispatcherList().AddFirst(GetRequiredService<CommitLogDispatcherCalcBitMap>());
+
             _sendMessageScheduler = new OpenNetQTaskScheduler(_brokerOption.SendMessageThreadPoolCount, _brokerOption.SendMessageThreadPoolCount, 60 * 1000, "SendMessageThread_");
             _pushMessageScheduler = new OpenNetQTaskScheduler(_brokerOption.PushMessageThreadPoolCount, _brokerOption.PushMessageThreadPoolCount, 60 * 1000, "PushMessageThread_");
             _pullMessageScheduler = new OpenNetQTaskScheduler(_brokerOption.PullMessageThreadPoolCount, _brokerOption.PullMessageThreadPoolCount, 60 * 1000, "PullMessageThread_");
@@ -117,5 +133,83 @@ namespace OpenNetQ.Broker
         {
             _loggerFactory
         }
+
+        public void registerProcessor()
+        {
+            //send message processor
+            var sendMessageProcessor = GetRequiredService<ISendMessageProcessor>();
+            sendMessageProcessor.RegisterSendMessageHook(sendMessageHooks);
+            sendMessageProcessor.RegisterConsumeMessageHook(consumeMessageHooks);
+
+            _remotingServer.RegisterProcessor(RequestCode.SEND_MESSAGE, sendMessageProcessor, _sendMessageScheduler);
+            _remotingServer.RegisterProcessor(RequestCode.SEND_MESSAGE_V2, sendMessageProcessor, this._sendMessageScheduler);
+            _remotingServer.RegisterProcessor(RequestCode.SEND_BATCH_MESSAGE, sendMessageProcessor, this._sendMessageScheduler);
+            _remotingServer.RegisterProcessor(RequestCode.CONSUMER_SEND_MSG_BACK, sendMessageProcessor, this._sendMessageScheduler);
+
+            /**
+             * PullMessageProcessor
+             */
+            _remotingServer.RegisterProcessor(RequestCode.PULL_MESSAGE, _pullMessageProcessor, _pullMessageScheduler);
+            _pullMessageProcessor.registerConsumeMessageHook(consumeMessageHookList);
+
+            /**
+             * ReplyMessageProcessor
+             */
+            ReplyMessageProcessor replyMessageProcessor = new ReplyMessageProcessor(this);
+            replyMessageProcessor.registerSendMessageHook(sendMessageHookList);
+
+            this.remotingServer.registerProcessor(RequestCode.SEND_REPLY_MESSAGE, replyMessageProcessor, replyMessageExecutor);
+            this.remotingServer.registerProcessor(RequestCode.SEND_REPLY_MESSAGE_V2, replyMessageProcessor, replyMessageExecutor);
+            this.fastRemotingServer.registerProcessor(RequestCode.SEND_REPLY_MESSAGE, replyMessageProcessor, replyMessageExecutor);
+            this.fastRemotingServer.registerProcessor(RequestCode.SEND_REPLY_MESSAGE_V2, replyMessageProcessor, replyMessageExecutor);
+
+            /**
+             * QueryMessageProcessor
+             */
+            NettyRequestProcessor queryProcessor = new QueryMessageProcessor(this);
+            this.remotingServer.registerProcessor(RequestCode.QUERY_MESSAGE, queryProcessor, this.queryMessageExecutor);
+            this.remotingServer.registerProcessor(RequestCode.VIEW_MESSAGE_BY_ID, queryProcessor, this.queryMessageExecutor);
+
+            this.fastRemotingServer.registerProcessor(RequestCode.QUERY_MESSAGE, queryProcessor, this.queryMessageExecutor);
+            this.fastRemotingServer.registerProcessor(RequestCode.VIEW_MESSAGE_BY_ID, queryProcessor, this.queryMessageExecutor);
+
+            /**
+             * ClientManageProcessor
+             */
+            ClientManageProcessor clientProcessor = new ClientManageProcessor(this);
+            this.remotingServer.registerProcessor(RequestCode.HEART_BEAT, clientProcessor, this.heartbeatExecutor);
+            this.remotingServer.registerProcessor(RequestCode.UNREGISTER_CLIENT, clientProcessor, this.clientManageExecutor);
+            this.remotingServer.registerProcessor(RequestCode.CHECK_CLIENT_CONFIG, clientProcessor, this.clientManageExecutor);
+
+            this.fastRemotingServer.registerProcessor(RequestCode.HEART_BEAT, clientProcessor, this.heartbeatExecutor);
+            this.fastRemotingServer.registerProcessor(RequestCode.UNREGISTER_CLIENT, clientProcessor, this.clientManageExecutor);
+            this.fastRemotingServer.registerProcessor(RequestCode.CHECK_CLIENT_CONFIG, clientProcessor, this.clientManageExecutor);
+
+            /**
+             * ConsumerManageProcessor
+             */
+            ConsumerManageProcessor consumerManageProcessor = new ConsumerManageProcessor(this);
+            this.remotingServer.registerProcessor(RequestCode.GET_CONSUMER_LIST_BY_GROUP, consumerManageProcessor, this.consumerManageExecutor);
+            this.remotingServer.registerProcessor(RequestCode.UPDATE_CONSUMER_OFFSET, consumerManageProcessor, this.consumerManageExecutor);
+            this.remotingServer.registerProcessor(RequestCode.QUERY_CONSUMER_OFFSET, consumerManageProcessor, this.consumerManageExecutor);
+
+            this.fastRemotingServer.registerProcessor(RequestCode.GET_CONSUMER_LIST_BY_GROUP, consumerManageProcessor, this.consumerManageExecutor);
+            this.fastRemotingServer.registerProcessor(RequestCode.UPDATE_CONSUMER_OFFSET, consumerManageProcessor, this.consumerManageExecutor);
+            this.fastRemotingServer.registerProcessor(RequestCode.QUERY_CONSUMER_OFFSET, consumerManageProcessor, this.consumerManageExecutor);
+
+            /**
+             * EndTransactionProcessor
+             */
+            this.remotingServer.registerProcessor(RequestCode.END_TRANSACTION, new EndTransactionProcessor(this), this.endTransactionExecutor);
+            this.fastRemotingServer.registerProcessor(RequestCode.END_TRANSACTION, new EndTransactionProcessor(this), this.endTransactionExecutor);
+
+            /**
+             * Default
+             */
+            AdminBrokerProcessor adminProcessor = new AdminBrokerProcessor(this);
+            this.remotingServer.registerDefaultProcessor(adminProcessor, this.adminBrokerExecutor);
+            this.fastRemotingServer.registerDefaultProcessor(adminProcessor, this.adminBrokerExecutor);
+        }
+
     }
 }

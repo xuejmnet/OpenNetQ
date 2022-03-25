@@ -25,4 +25,7 @@ public interface IMessageStore:IDisposable
     void Stop();
 
     Task AddMessageAsync();
+
+
+    LinkedList<ICommitLogDispatcher> GetDispatcherList();
 }
