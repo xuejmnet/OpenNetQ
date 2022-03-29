@@ -136,7 +136,7 @@ namespace OpenNetQ.Broker
 
         public void registerProcessor()
         {
-            //send message processor
+            //SendMessageProcessor
             var sendMessageProcessor = GetRequiredService<ISendMessageProcessor>();
             sendMessageProcessor.RegisterSendMessageHook(sendMessageHooks);
             sendMessageProcessor.RegisterConsumeMessageHook(consumeMessageHooks);
@@ -146,9 +146,7 @@ namespace OpenNetQ.Broker
             _remotingServer.RegisterProcessor(RequestCode.SEND_BATCH_MESSAGE, sendMessageProcessor, this._sendMessageScheduler);
             _remotingServer.RegisterProcessor(RequestCode.CONSUMER_SEND_MSG_BACK, sendMessageProcessor, this._sendMessageScheduler);
 
-            /**
-             * PullMessageProcessor
-             */
+           //PullMessageProcessor
             _remotingServer.RegisterProcessor(RequestCode.PULL_MESSAGE, _pullMessageProcessor, _pullMessageScheduler);
             _pullMessageProcessor.registerConsumeMessageHook(consumeMessageHookList);
 

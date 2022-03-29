@@ -7,10 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="NameSrv" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\OpenNetQ.Remoting\OpenNetQ.Remoting.csproj" />
   </ItemGroup>
 

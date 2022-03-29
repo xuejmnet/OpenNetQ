@@ -15,5 +15,8 @@
 		<DocumentationFile>bin\Release\OpenNetQ.Client.xml</DocumentationFile>
 		<LangVersion>latest</LangVersion>
 	</PropertyGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\OpenNetQ.Common\OpenNetQ.Common.csproj" />
+	</ItemGroup>
 
 </Project>
