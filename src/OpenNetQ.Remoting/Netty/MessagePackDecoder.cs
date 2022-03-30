@@ -18,7 +18,7 @@ namespace OpenNetQ.Remoting.Netty
     {
         private readonly ILogger<MessagePackDecoder> _logger;
 
-        public MessagePackDecoder(LoggerFactory loggerFactory)
+        public MessagePackDecoder(ILoggerFactory loggerFactory)
         {
             _logger = loggerFactory.CreateLogger<MessagePackDecoder>();
         }

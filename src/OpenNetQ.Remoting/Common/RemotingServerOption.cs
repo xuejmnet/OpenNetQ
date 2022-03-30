@@ -15,7 +15,13 @@ namespace OpenNetQ.Remoting.Common
         /// <summary>
         /// 监听端口
         /// </summary>
-        public int Port { get; set; }
+        public int Port { get; set; } = 8888;
+
+        /// <summary>
+        /// 服务端工作线程数
+        /// </summary>
+        public int ServerWorkerThreads { get; set; } = 8;
+
         /// <summary>
         /// 心跳间隔秒
         /// </summary>
@@ -30,14 +36,17 @@ namespace OpenNetQ.Remoting.Common
         /// 提交间隔毫秒
         /// </summary>
         public int CommitIntervalMillis { get; set; } = 500;
+
         /// <summary>
         /// 单向发送的并发值
         /// </summary>
         public int PermitsOneway { get; set; } = 65536;
+
         /// <summary>
         /// 异步发送的并发值
         /// </summary>
         public int PermitsAsync { get; set; } = 65536;
+
         /// <summary>
         /// tsl证书
         /// </summary>

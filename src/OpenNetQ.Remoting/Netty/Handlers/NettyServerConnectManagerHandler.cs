@@ -17,7 +17,7 @@ namespace OpenNetQ.Remoting.Netty.Handlers
     public class NettyServerConnectManagerHandler : ChannelDuplexHandler
     {
         private readonly ILogger<NettyServerConnectManagerHandler> _logger;
-        public NettyServerConnectManagerHandler(LoggerFactory loggerFactory)
+        public NettyServerConnectManagerHandler(ILoggerFactory loggerFactory)
         {
             _logger = loggerFactory.CreateLogger<NettyServerConnectManagerHandler>();
         }

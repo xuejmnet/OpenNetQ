@@ -25,7 +25,7 @@ namespace OpenNetQ.Remoting.Netty
     public class NettyRemotingServer:AbstractNettyRemoting,IRemotingServer
     {
         private readonly ILogger<NettyRemotingServer> _logger;
-        private readonly LoggerFactory _loggerFactory;
+        private readonly ILoggerFactory _loggerFactory;
         private readonly RemotingServerOption _option;
         private readonly bool _useTls;
         private readonly OpenNetQTaskScheduler _publicOpenNetQTaskScheduler;
@@ -50,7 +50,7 @@ namespace OpenNetQ.Remoting.Netty
         private MessagePackDecoder _decoder;
         private NettyServerConnectManagerHandler _connectManagerHandler;
         private NettyServerHandler _nettyServerHandler;
-        public NettyRemotingServer(LoggerFactory loggerFactory,RemotingServerOption option) : base(loggerFactory, option)
+        public NettyRemotingServer(ILoggerFactory loggerFactory,RemotingServerOption option) : base(loggerFactory, option)
         {
             _logger = loggerFactory.CreateLogger<NettyRemotingServer>();
             _loggerFactory = loggerFactory;

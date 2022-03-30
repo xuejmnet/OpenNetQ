@@ -20,7 +20,7 @@ namespace KhaosLog.NettyProvider.Handlers
         private readonly ILogger<MessagePackEncoder> _logger;
         public override bool IsSharable => true;
 
-        public MessagePackEncoder(LoggerFactory loggerFactory)
+        public MessagePackEncoder(ILoggerFactory loggerFactory)
         {
             _logger = loggerFactory.CreateLogger<MessagePackEncoder>();
         }

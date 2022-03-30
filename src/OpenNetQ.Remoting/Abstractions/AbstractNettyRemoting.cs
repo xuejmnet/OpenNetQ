@@ -42,7 +42,7 @@ namespace OpenNetQ.Remoting.Abstractions
 
         protected NettyEventExecutor NettyEventExecutor = new NettyEventExecutor();
 
-        public AbstractNettyRemoting(LoggerFactory loggerFactory,RemotingServerOption serverOption)
+        public AbstractNettyRemoting(ILoggerFactory loggerFactory,RemotingServerOption serverOption)
         {
             _logger = loggerFactory.CreateLogger<AbstractNettyRemoting>();
             _serverOption = serverOption;

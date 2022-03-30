@@ -21,7 +21,7 @@ namespace OpenNetQ.Remoting.Netty.Handlers
         private readonly ILogger<NettyServerHandler> _logger;
         public override bool IsSharable => true;
 
-        public NettyServerHandler(LoggerFactory loggerFactory)
+        public NettyServerHandler(ILoggerFactory loggerFactory)
         {
             _logger = loggerFactory.CreateLogger<NettyServerHandler>();
         }

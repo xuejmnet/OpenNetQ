@@ -67,13 +67,38 @@ namespace OpenNetQ.TaskSchedulers
         /// <param name="maxThreadCount">最大线程数</param>
         /// <param name="auxiliaryThreadTimeOut">辅助线程释放时间</param>
         /// <param name="threadNamePrefix">线程名称前缀</param>
-        public OpenNetQTaskScheduler(int coreThreadCount = 10, int maxThreadCount = 20,int auxiliaryThreadTimeOut = 2000,string? threadNamePrefix=null)
+        public OpenNetQTaskScheduler(int coreThreadCount, int maxThreadCount,TimeSpan auxiliaryThreadTimeOut,string? threadNamePrefix)
         {
             _sem = new SemaphoreSlim(0, _semMaxCount);
-            _auxiliaryThreadTimeOut = auxiliaryThreadTimeOut;
+            _auxiliaryThreadTimeOut = (int)auxiliaryThreadTimeOut.TotalMilliseconds;
             _maxThreadCount = maxThreadCount;
             _threadNamePrefix = threadNamePrefix;
             CreateCoreThreads(coreThreadCount);
+        }
+
+        public OpenNetQTaskScheduler(int threadCount):this(threadCount,threadCount,TimeSpan.FromMilliseconds(2000),null)
+        {
+            
+        }
+        public OpenNetQTaskScheduler(int threadCount,TimeSpan auxiliaryThreadTimeOut):this(threadCount,threadCount,auxiliaryThreadTimeOut,null)
+        {
+            
+        }
+        public OpenNetQTaskScheduler(int threadCount,string? threadNamePrefix):this(threadCount,threadCount,TimeSpan.FromMilliseconds(2000),threadNamePrefix)
+        {
+            
+        }
+        public OpenNetQTaskScheduler(int threadCount,TimeSpan auxiliaryThreadTimeOut,string? threadNamePrefix):this(threadCount,threadCount,auxiliaryThreadTimeOut,threadNamePrefix)
+        {
+            
+        }
+        public OpenNetQTaskScheduler(int coreThreadCount,int maxThreadCount):this(coreThreadCount,maxThreadCount,TimeSpan.FromMilliseconds(2000),null)
+        {
+            
+        }
+        public OpenNetQTaskScheduler(int coreThreadCount,int maxThreadCount,TimeSpan auxiliaryThreadTimeOut):this(coreThreadCount,maxThreadCount,auxiliaryThreadTimeOut,null)
+        {
+            
         }
         #endregion
 
