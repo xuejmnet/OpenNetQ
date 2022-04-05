@@ -25,5 +25,19 @@ namespace OpenNetQ.Extensions
                 throw new ArgumentNullException(nameof (value));
             return encoding != null ? encoding.GetBytes(value) : throw new ArgumentNullException(nameof (encoding));
         }
+        public static byte[] GetBytes(this string? value)
+        {
+            return value.GetBytes(Encoding.UTF8);
+        }
+        public static string GetString(this byte[]? data, Encoding encoding)
+        {
+            if (data == null)
+                throw new ArgumentNullException(nameof (data));
+            return encoding != null ? encoding.GetString(data) : throw new ArgumentNullException(nameof (encoding));
+        }
+        public static string GetString(this byte[]? data)
+        {
+            return data.GetString(Encoding.UTF8);
+        }
     }
 }

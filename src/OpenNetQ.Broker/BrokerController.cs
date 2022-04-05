@@ -20,6 +20,7 @@ using OpenNetQ.Broker.Slave;
 using OpenNetQ.Broker.Stats;
 using OpenNetQ.Broker.Subscription;
 using OpenNetQ.Broker.Topic;
+using OpenNetQ.Common.Constant;
 using OpenNetQ.Common.Options;
 using OpenNetQ.Common.Protocol;
 using OpenNetQ.Remoting.Abstractions;
@@ -58,6 +59,7 @@ namespace OpenNetQ.Broker
         private readonly IBrokerFastFailure _brokerFastFailure;
         private  readonly IMessageStore _messageStore;
         private  readonly IRemotingServer _remotingServer;
+        private readonly FixedSchedule _registerBrokerAllFixedSchedule = new FixedSchedule("BrokerControllerFixedSchedule", TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30));
 
         #region alone thread pool
 
@@ -207,7 +209,15 @@ namespace OpenNetQ.Broker
             AdminBrokerProcessor adminProcessor = new AdminBrokerProcessor(this);
             this.remotingServer.registerDefaultProcessor(adminProcessor, this.adminBrokerExecutor);
             this.fastRemotingServer.registerDefaultProcessor(adminProcessor, this.adminBrokerExecutor);
+            
+            
+            _registerBrokerAllFixedSchedule.StartAsync()
         }
 
+        public void RegisterBrokerAll(bool checkOrderConfig, bool oneway, bool forceRegister)
+        {
+            var topicConfigWrapper = _topicConfigManager.BuildTopicConfigSerializeWrapper();
+            if(!PermName.IsWriteable(_brokerOption))
+        }
     }
 }

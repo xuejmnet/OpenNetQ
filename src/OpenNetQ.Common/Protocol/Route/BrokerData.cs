@@ -3,12 +3,12 @@ using System;
 /*
 * @Author: xjm
 * @Description:
-* @Date: DATE TIME
+* @Date: DATE
 * @Email: 326308290@qq.com
 */
-namespace OpenNetQ.Common.Route
+namespace OpenNetQ.Common.Protocol.Route
 {
-    public class TopicRouteData
+    public class BrokerData
     {
         
     }

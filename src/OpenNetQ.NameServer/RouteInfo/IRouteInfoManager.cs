@@ -3,7 +3,7 @@ using DotNetty.Transport.Channels;
 using OpenNetQ.Common;
 using OpenNetQ.Common.NameSrv;
 using OpenNetQ.Common.Protocol.Body;
-using OpenNetQ.Common.Route;
+using OpenNetQ.Common.Protocol.Route;
 
 /*
 * @Author: xjm

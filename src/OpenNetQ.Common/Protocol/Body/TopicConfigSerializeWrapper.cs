@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using OpenNetQ.Remoting.Protocol;
 
 /*
 * @Author: xjm
@@ -9,7 +10,7 @@ using System.Collections.Concurrent;
 */
 namespace OpenNetQ.Common.Protocol.Body
 {
-    public class TopicConfigSerializeWrapper
+    public class TopicConfigSerializeWrapper:RemotingSerializable
     {
         public ConcurrentDictionary<string, TopicConfig> TopicConfigTable = new ConcurrentDictionary<string, TopicConfig>();
         public DataVersion DataVersion = new DataVersion();
