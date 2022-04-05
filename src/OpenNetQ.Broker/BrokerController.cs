@@ -134,7 +134,7 @@ namespace OpenNetQ.Broker
             _loggerFactory
         }
 
-        public void registerProcessor()
+        public void RegisterProcessor()
         {
             //SendMessageProcessor
             var sendMessageProcessor = GetRequiredService<ISendMessageProcessor>();
