@@ -20,9 +20,11 @@ using OpenNetQ.Broker.Slave;
 using OpenNetQ.Broker.Stats;
 using OpenNetQ.Broker.Subscription;
 using OpenNetQ.Broker.Topic;
+using OpenNetQ.Common;
 using OpenNetQ.Common.Constant;
 using OpenNetQ.Common.Options;
 using OpenNetQ.Common.Protocol;
+using OpenNetQ.Common.Protocol.Body;
 using OpenNetQ.Remoting.Abstractions;
 using OpenNetQ.Remoting.Common;
 using OpenNetQ.Store;
@@ -31,7 +33,7 @@ using OpenNetQ.TaskSchedulers;
 
 namespace OpenNetQ.Broker
 {
-    public class BrokerController: InjectService
+    public class BrokerController : InjectService
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<BrokerController> _logger;
@@ -57,29 +59,29 @@ namespace OpenNetQ.Broker
         private readonly ISlaveSynchronize _slaveSynchronize;
         private readonly IBrokerStatsManager _brokerStatsManager;
         private readonly IBrokerFastFailure _brokerFastFailure;
-        private  readonly IMessageStore _messageStore;
-        private  readonly IRemotingServer _remotingServer;
+        private readonly IMessageStore _messageStore;
+        private readonly IRemotingServer _remotingServer;
         private readonly FixedSchedule _registerBrokerAllFixedSchedule = new FixedSchedule("BrokerControllerFixedSchedule", TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30));
 
         #region alone thread pool
 
-        private  OpenNetQTaskScheduler _sendMessageScheduler;
-        private  OpenNetQTaskScheduler _pushMessageScheduler;
-        private  OpenNetQTaskScheduler _pullMessageScheduler;
-        private  OpenNetQTaskScheduler _processReplyMessageScheduler;
-        private  OpenNetQTaskScheduler _queryMessageScheduler;
-        private  OpenNetQTaskScheduler _adminBrokerScheduler;
-        private  OpenNetQTaskScheduler _clientManageScheduler;
-        private  OpenNetQTaskScheduler _heartbeatScheduler;
-        private  OpenNetQTaskScheduler _endTransactionScheduler;
-        private  OpenNetQTaskScheduler _consumerManageScheduler;
+        private OpenNetQTaskScheduler _sendMessageScheduler;
+        private OpenNetQTaskScheduler _pushMessageScheduler;
+        private OpenNetQTaskScheduler _pullMessageScheduler;
+        private OpenNetQTaskScheduler _processReplyMessageScheduler;
+        private OpenNetQTaskScheduler _queryMessageScheduler;
+        private OpenNetQTaskScheduler _adminBrokerScheduler;
+        private OpenNetQTaskScheduler _clientManageScheduler;
+        private OpenNetQTaskScheduler _heartbeatScheduler;
+        private OpenNetQTaskScheduler _endTransactionScheduler;
+        private OpenNetQTaskScheduler _consumerManageScheduler;
         #endregion
 
 
         private readonly ICollection<ISendMessageHook> sendMessageHooks = new List<ISendMessageHook>();
         private readonly ICollection<IConsumeMessageHook> consumeMessageHooks = new List<IConsumeMessageHook>();
 
-        public BrokerController(IServiceProvider serviceProvider):base(serviceProvider)
+        public BrokerController(IServiceProvider serviceProvider) : base(serviceProvider)
         {
             _serviceProvider = serviceProvider;
             _loggerFactory = GetRequiredService<LoggerFactory>();
@@ -148,7 +150,7 @@ namespace OpenNetQ.Broker
             _remotingServer.RegisterProcessor(RequestCode.SEND_BATCH_MESSAGE, sendMessageProcessor, this._sendMessageScheduler);
             _remotingServer.RegisterProcessor(RequestCode.CONSUMER_SEND_MSG_BACK, sendMessageProcessor, this._sendMessageScheduler);
 
-           //PullMessageProcessor
+            //PullMessageProcessor
             _remotingServer.RegisterProcessor(RequestCode.PULL_MESSAGE, _pullMessageProcessor, _pullMessageScheduler);
             _pullMessageProcessor.registerConsumeMessageHook(consumeMessageHookList);
 
@@ -209,15 +211,52 @@ namespace OpenNetQ.Broker
             AdminBrokerProcessor adminProcessor = new AdminBrokerProcessor(this);
             this.remotingServer.registerDefaultProcessor(adminProcessor, this.adminBrokerExecutor);
             this.fastRemotingServer.registerDefaultProcessor(adminProcessor, this.adminBrokerExecutor);
-            
-            
+
+
             _registerBrokerAllFixedSchedule.StartAsync()
         }
 
         public void RegisterBrokerAll(bool checkOrderConfig, bool oneway, bool forceRegister)
         {
             var topicConfigWrapper = _topicConfigManager.BuildTopicConfigSerializeWrapper();
-            if(!PermName.IsWriteable(_brokerOption))
+            if (!PermName.IsWriteable(_brokerOption.BrokerPermission)
+                || !PermName.IsReadable(_brokerOption.BrokerPermission))
+            {
+                ConcurrentDictionary<string, TopicConfig> topicConfigTable = new ConcurrentDictionary<string, TopicConfig>();
+                foreach (var topicConfig in topicConfigWrapper.TopicConfigTable.Values)
+                {
+                    var tc = new TopicConfig(topicConfig.TopicName, topicConfig.ReadQueueNums, topicConfig.WriteQueueNums, _brokerOption.BrokerPermission);
+                    topicConfigTable.TryAdd(tc.TopicName, tc);
+                }
+
+                topicConfigWrapper.TopicConfigTable = topicConfigTable;
+            }
+
+            if (forceRegister || NeedRegister(_brokerOption.BrokerClusterName, GetBrokerAddr(),
+                    _brokerOption.BrokerName,
+                    _brokerOption.BrokerId, _brokerOption.RegisterBrokerTimeoutMills))
+            {
+                DoRegisterBrokerAll(checkOrderConfig, oneway, topicConfigWrapper);
+            }
+        }
+
+        private void DoRegisterBrokerAll(bool checkOrderConfig, bool onewat,
+            TopicConfigSerializeWrapper topicConfigWrapper)
+        {
+            //TODO
+        }
+
+        private bool NeedRegister(string clusterName, string brokerAddr, string brokerName, long brokerId,
+            int timeoutMills)
+        {
+            var topicConfigWrapper = _topicConfigManager.BuildTopicConfigSerializeWrapper();
+            var needRegister = _brokerOuterApi.NeedRegister(clusterName, brokerAddr, brokerName, brokerId, topicConfigWrapper, timeoutMills);
+            return needRegister.Any(o => o);
+        }
+
+        public String GetBrokerAddr()
+        {
+            return $"{_brokerOption.BrokerIP1}:{_remotingServerOption.Port}";
         }
     }
 }

@@ -1,13 +1,41 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using OpenNetQ.Common.Constant;
+using OpenNetQ.Core;
+using OpenNetQ.Remoting.Common;
 
 namespace OpenNetQ.Common.Options
 {
     public class BrokerOption
     {
+        public string BrokerClusterName { get; set; } = "DefaultCluster";
+        public string BrokerIP1 { get; set; } = RemotingUtil.GetLocalAddress();
+        public string BrokerIP2 { get; set; } = RemotingUtil.GetLocalAddress();
+        public string BrokerName { get; set; } = LocalHostName();
+        public long BrokerId { get; set; } = 0L;
+        public int RegisterBrokerTimeoutMills = 6000;
+
+
+        public static string LocalHostName()
+        {
+            try
+            {
+                return  Dns.GetHostName();
+            }
+            catch (SocketException e)
+            {
+                Console.WriteLine($"Failed to obtain the host name : {e}");
+            }
+
+            return "DEFAULT_BROKER";
+        }
+        public int BrokerPermission { get; set; } = PermName.PERM_READ | PermName.PERM_WRITE;
         /// <summary>
         /// 是否启用轻量级消息队列
         /// </summary>

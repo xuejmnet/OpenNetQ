@@ -27,4 +27,9 @@ public class RemotingUtil
                     null, TaskContinuationOptions.ExecuteSynchronously);
         }
     }
+
+    public static string GetLocalAddress()
+    {
+        throw new NotImplementedException(nameof(GetLocalAddress));
+    }
 }
