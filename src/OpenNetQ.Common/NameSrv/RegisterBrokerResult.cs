@@ -11,7 +11,7 @@ namespace OpenNetQ.Common.NameSrv
 {
     public class RegisterBrokerResult
     {
-        public string? HaServerAddr { get; set; }
+        public string? HAServerAddr { get; set; }
         public string? MasterAddr { get; set; }
         public KVTable? KVTable { get; set; }
     }

@@ -8,5 +8,6 @@ namespace OpenNetQ.Broker.FilterServer
 {
     public interface IFilterServerManager
     {
+        List<string> BuildNewFilterServerList();
     }
 }

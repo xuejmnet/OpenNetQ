@@ -78,6 +78,8 @@ namespace OpenNetQ.Broker
         #endregion
 
 
+        private bool _updateMasterHAServerAddrPeriodically = false;
+
         private readonly ICollection<ISendMessageHook> sendMessageHooks = new List<ISendMessageHook>();
         private readonly ICollection<IConsumeMessageHook> consumeMessageHooks = new List<IConsumeMessageHook>();
 
@@ -240,10 +242,31 @@ namespace OpenNetQ.Broker
             }
         }
 
-        private void DoRegisterBrokerAll(bool checkOrderConfig, bool onewat,
+        private void DoRegisterBrokerAll(bool checkOrderConfig, bool oneway,
             TopicConfigSerializeWrapper topicConfigWrapper)
         {
             //TODO
+            var registerBrokerResultList = _brokerOuterApi.RegisterBrokerAll(
+                _brokerOption.BrokerClusterName,
+                GetBrokerAddr(),
+                _brokerOption.BrokerName,
+                _brokerOption.BrokerId,
+                GetHAServerAddr(),
+                topicConfigWrapper,
+                _filterServerManager.BuildNewFilterServerList(),
+                oneway,
+                _brokerOption.RegisterBrokerTimeoutMills,
+                _brokerOption.IsCompressedRegister
+            );
+            if (registerBrokerResultList.Any())
+            {
+                var registerBrokerResult = registerBrokerResultList.First();
+                if(_updateMasterHAServerAddrPeriodically&&registerBrokerResult.HAServerAddr is not null)
+                {
+                    _messageStore.UpdateHaMasterAddress(registerBrokerResult.HAServerAddr);
+                }
+                //TODO
+            }
         }
 
         private bool NeedRegister(string clusterName, string brokerAddr, string brokerName, long brokerId,
@@ -254,9 +277,14 @@ namespace OpenNetQ.Broker
             return needRegister.Any(o => o);
         }
 
-        public String GetBrokerAddr()
+        public string GetBrokerAddr()
         {
             return $"{_brokerOption.BrokerIP1}:{_remotingServerOption.Port}";
+        }
+
+        public string GetHAServerAddr()
+        {
+            return $"{_brokerOption.BrokerIP2}:{_messageStoreOption.HAPort}";
         }
     }
 }

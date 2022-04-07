@@ -19,7 +19,8 @@ namespace OpenNetQ.Common.Options
         public string BrokerIP2 { get; set; } = RemotingUtil.GetLocalAddress();
         public string BrokerName { get; set; } = LocalHostName();
         public long BrokerId { get; set; } = 0L;
-        public int RegisterBrokerTimeoutMills = 6000;
+        public int RegisterBrokerTimeoutMills { get; set; } = 6000;
+        public bool IsCompressedRegister { get; set; } = false;
 
 
         public static string LocalHostName()
@@ -31,9 +32,9 @@ namespace OpenNetQ.Common.Options
             catch (SocketException e)
             {
                 Console.WriteLine($"Failed to obtain the host name : {e}");
+                return "DEFAULT_BROKER";
             }
 
-            return "DEFAULT_BROKER";
         }
         public int BrokerPermission { get; set; } = PermName.PERM_READ | PermName.PERM_WRITE;
         /// <summary>

@@ -28,4 +28,6 @@ public interface IMessageStore:IDisposable
 
 
     LinkedList<ICommitLogDispatcher> GetDispatcherList();
+
+    void UpdateHaMasterAddress(string newAddr);
 }
