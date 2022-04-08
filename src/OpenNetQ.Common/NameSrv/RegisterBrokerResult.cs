@@ -13,6 +13,6 @@ namespace OpenNetQ.Common.NameSrv
     {
         public string? HAServerAddr { get; set; }
         public string? MasterAddr { get; set; }
-        public KVTable? KVTable { get; set; }
+        public KvTable? KVTable { get; set; }
     }
 }

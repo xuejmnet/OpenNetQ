@@ -21,6 +21,7 @@ namespace OpenNetQ.Common.Options
         public long BrokerId { get; set; } = 0L;
         public int RegisterBrokerTimeoutMills { get; set; } = 6000;
         public bool IsCompressedRegister { get; set; } = false;
+        public bool IsForceRegister { get; set; } = true;
 
 
         public static string LocalHostName()

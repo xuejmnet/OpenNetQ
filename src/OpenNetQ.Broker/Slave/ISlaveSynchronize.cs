@@ -8,5 +8,6 @@ namespace OpenNetQ.Broker.Slave
 {
     public interface ISlaveSynchronize
     {
+        void SetMasterAddr(string? masterAddr);
     }
 }

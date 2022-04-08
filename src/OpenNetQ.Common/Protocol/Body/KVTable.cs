@@ -8,7 +8,10 @@ using System;
 */
 namespace OpenNetQ.Common.Protocol.Body
 {
-    public class KVTable
+    /// <summary>
+    /// 
+    /// </summary>
+    public class KvTable
     {
         public IDictionary<string, string> Table = new Dictionary<string, string>();
     }

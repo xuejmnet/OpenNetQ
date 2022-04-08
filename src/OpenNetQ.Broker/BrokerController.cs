@@ -25,6 +25,7 @@ using OpenNetQ.Common.Constant;
 using OpenNetQ.Common.Options;
 using OpenNetQ.Common.Protocol;
 using OpenNetQ.Common.Protocol.Body;
+using OpenNetQ.Extensions;
 using OpenNetQ.Remoting.Abstractions;
 using OpenNetQ.Remoting.Common;
 using OpenNetQ.Store;
@@ -132,7 +133,6 @@ namespace OpenNetQ.Broker
             _heartbeatScheduler = new OpenNetQTaskScheduler(_brokerOption.HeartbeatThreadPoolCount, _brokerOption.HeartbeatThreadPoolCount, 60 * 1000, "HeartbeatThread_");
             _endTransactionScheduler = new OpenNetQTaskScheduler(_brokerOption.EndTransactionThreadPoolCount, _brokerOption.EndTransactionThreadPoolCount, 60 * 1000, "EndTransactionThread_");
             _consumerManageScheduler = new OpenNetQTaskScheduler(_brokerOption.ConsumerManageThreadPoolCount, _brokerOption.ConsumerManageThreadPoolCount, 60 * 1000, "ConsumerManageThread_");
-
         }
 
         public Task StartAsync()
@@ -215,30 +215,38 @@ namespace OpenNetQ.Broker
             this.fastRemotingServer.registerDefaultProcessor(adminProcessor, this.adminBrokerExecutor);
 
 
-            _registerBrokerAllFixedSchedule.StartAsync()
+            _=Task.Factory.StartNew(state =>
+            {
+                while()
+                RegisterBrokerAll(true,false,_brokerOption.IsForceRegister);
+            }, null, TaskCreationOptions.LongRunning);
         }
 
+        private readonly object _registerBrokerAllLock = new();
         public void RegisterBrokerAll(bool checkOrderConfig, bool oneway, bool forceRegister)
         {
-            var topicConfigWrapper = _topicConfigManager.BuildTopicConfigSerializeWrapper();
-            if (!PermName.IsWriteable(_brokerOption.BrokerPermission)
-                || !PermName.IsReadable(_brokerOption.BrokerPermission))
+            lock (_registerBrokerAllLock)
             {
-                ConcurrentDictionary<string, TopicConfig> topicConfigTable = new ConcurrentDictionary<string, TopicConfig>();
-                foreach (var topicConfig in topicConfigWrapper.TopicConfigTable.Values)
+                var topicConfigWrapper = _topicConfigManager.BuildTopicConfigSerializeWrapper();
+                if (!PermName.IsWriteable(_brokerOption.BrokerPermission)
+                    || !PermName.IsReadable(_brokerOption.BrokerPermission))
                 {
-                    var tc = new TopicConfig(topicConfig.TopicName, topicConfig.ReadQueueNums, topicConfig.WriteQueueNums, _brokerOption.BrokerPermission);
-                    topicConfigTable.TryAdd(tc.TopicName, tc);
+                    ConcurrentDictionary<string, TopicConfig> topicConfigTable = new ConcurrentDictionary<string, TopicConfig>();
+                    foreach (var topicConfig in topicConfigWrapper.TopicConfigTable.Values)
+                    {
+                        var tc = new TopicConfig(topicConfig.TopicName, topicConfig.ReadQueueNums, topicConfig.WriteQueueNums, _brokerOption.BrokerPermission);
+                        topicConfigTable.TryAdd(tc.TopicName, tc);
+                    }
+
+                    topicConfigWrapper.TopicConfigTable = topicConfigTable;
                 }
 
-                topicConfigWrapper.TopicConfigTable = topicConfigTable;
-            }
-
-            if (forceRegister || NeedRegister(_brokerOption.BrokerClusterName, GetBrokerAddr(),
-                    _brokerOption.BrokerName,
-                    _brokerOption.BrokerId, _brokerOption.RegisterBrokerTimeoutMills))
-            {
-                DoRegisterBrokerAll(checkOrderConfig, oneway, topicConfigWrapper);
+                if (forceRegister || NeedRegister(_brokerOption.BrokerClusterName, GetBrokerAddr(),
+                        _brokerOption.BrokerName,
+                        _brokerOption.BrokerId, _brokerOption.RegisterBrokerTimeoutMills))
+                {
+                    DoRegisterBrokerAll(checkOrderConfig, oneway, topicConfigWrapper);
+                }
             }
         }
 
@@ -265,7 +273,12 @@ namespace OpenNetQ.Broker
                 {
                     _messageStore.UpdateHaMasterAddress(registerBrokerResult.HAServerAddr);
                 }
-                //TODO
+               
+                _slaveSynchronize.SetMasterAddr(registerBrokerResult.MasterAddr);
+                if (checkOrderConfig)
+                {
+                    _topicConfigManager.UpdateOrderTopicConfig(registerBrokerResult.KVTable);
+                }
             }
         }
 

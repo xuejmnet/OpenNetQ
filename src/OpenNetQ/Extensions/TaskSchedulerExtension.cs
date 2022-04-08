@@ -12,7 +12,7 @@ namespace OpenNetQ.Extensions
         /// <summary>
         /// 线程中执行
         /// </summary>
-        public static Task Run(this TaskScheduler scheduler, Action<object> doWork, object arg = null, Action<Exception> errorAction = null)
+        public static Task Run(this TaskScheduler scheduler, Action<object?> doWork, object? arg = null, Action<Exception>? errorAction = null)
         {
             return Task.Factory.StartNew((obj) =>
             {
@@ -33,7 +33,7 @@ namespace OpenNetQ.Extensions
         /// <summary>
         /// 线程中执行
         /// </summary>
-        public static Task Run(this TaskScheduler scheduler, Action doWork, Action<Exception> errorAction = null)
+        public static Task Run(this TaskScheduler scheduler, Action doWork, Action<Exception>? errorAction = null)
         {
             return Task.Factory.StartNew(() =>
             {
@@ -54,7 +54,7 @@ namespace OpenNetQ.Extensions
         /// <summary>
         /// 线程中执行
         /// </summary>
-        public static Task<T> Run<T>(this TaskScheduler scheduler, Func<object, T> doWork, object arg = null, Action<Exception> errorAction = null)
+        public static Task<T> Run<T>(this TaskScheduler scheduler, Func<object?, T> doWork, object? arg = null, Action<Exception>? errorAction = null)
         {
             return Task.Factory.StartNew<T>((obj) =>
             {
@@ -66,7 +66,7 @@ namespace OpenNetQ.Extensions
                 {
                     if (errorAction != null) errorAction(ex);
                     //LogUtil.Error(ex, "RunHelper.Run错误");
-                    return default(T);
+                    throw;
                 }
             }, arg, CancellationToken.None, TaskCreationOptions.None, scheduler);
         }
@@ -76,7 +76,7 @@ namespace OpenNetQ.Extensions
         /// <summary>
         /// 线程中执行
         /// </summary>
-        public static Task<T> Run<T>(this TaskScheduler scheduler, Func<T> doWork, Action<Exception> errorAction = null)
+        public static Task<T> Run<T>(this TaskScheduler scheduler, Func<T> doWork, Action<Exception>? errorAction = null)
         {
             return Task.Factory.StartNew<T>(() =>
             {
@@ -88,7 +88,7 @@ namespace OpenNetQ.Extensions
                 {
                     if (errorAction != null) errorAction(ex);
                     //LogUtil.Error(ex, "RunHelper.Run错误");
-                    return default(T);
+                    throw;
                 }
             }, CancellationToken.None, TaskCreationOptions.None, scheduler);
         }
@@ -98,7 +98,7 @@ namespace OpenNetQ.Extensions
         /// <summary>
         /// 线程中执行
         /// </summary>
-        public static async Task<T> RunAsync<T>(this TaskScheduler scheduler, Func<object, T> doWork, object arg = null, Action<Exception> errorAction = null)
+        public static async Task<T> RunAsync<T>(this TaskScheduler scheduler, Func<object?, T> doWork, object? arg = null, Action<Exception>? errorAction = null)
         {
             return await Task.Factory.StartNew<T>((obj) =>
             {
@@ -110,7 +110,7 @@ namespace OpenNetQ.Extensions
                 {
                     if (errorAction != null) errorAction(ex);
                     //LogUtil.Error(ex, "RunHelper.RunAsync错误");
-                    return default(T);
+                    throw;
                 }
             }, arg, CancellationToken.None, TaskCreationOptions.None, scheduler);
         }
@@ -120,7 +120,7 @@ namespace OpenNetQ.Extensions
         /// <summary>
         /// 线程中执行
         /// </summary>
-        public static async Task<T> RunAsync<T>(this TaskScheduler scheduler, Func<T> doWork, Action<Exception> errorAction = null)
+        public static async Task<T> RunAsync<T>(this TaskScheduler scheduler, Func<T> doWork, Action<Exception>? errorAction = null)
         {
             return await Task.Factory.StartNew<T>(() =>
             {
@@ -132,7 +132,7 @@ namespace OpenNetQ.Extensions
                 {
                     if (errorAction != null) errorAction(ex);
                     //LogUtil.Error(ex, "RunHelper.RunAsync错误");
-                    return default(T);
+                    throw;
                 }
             }, CancellationToken.None, TaskCreationOptions.None, scheduler);
         }
@@ -153,7 +153,7 @@ namespace OpenNetQ.Extensions
                 catch (Exception ex)
                 {
                     if (errorAction != null) errorAction(ex);
-                    Console.WriteLine($"{ex},TaskSchedulerExtension.RunAsync错误");
+                    throw;
                 }
             }, arg, CancellationToken.None, TaskCreationOptions.None, scheduler);
         }
@@ -163,7 +163,7 @@ namespace OpenNetQ.Extensions
         /// <summary>
         /// 线程中执行
         /// </summary>
-        public static async Task RunAsync(this TaskScheduler scheduler, Action doWork, Action<Exception> errorAction = null)
+        public static async Task RunAsync(this TaskScheduler scheduler, Action doWork, Action<Exception>? errorAction = null)
         {
             await Task.Factory.StartNew(() =>
             {
@@ -175,11 +175,11 @@ namespace OpenNetQ.Extensions
                 {
                     if (errorAction != null) errorAction(ex);
                     //LogUtil.Error(ex, "RunHelper.RunAsync错误");
+                    throw;
                 }
             }, CancellationToken.None, TaskCreationOptions.None, scheduler);
         }
         #endregion
 
     }
-}
 }
