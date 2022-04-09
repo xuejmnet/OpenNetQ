@@ -46,6 +46,9 @@ namespace OpenNetQ.Broker
         private readonly IConsumerOffsetManager _consumerOffsetManager;
         private readonly ITopicConfigManager _topicConfigManager;
         private readonly IPullMessageProcessor _pullMessageProcessor;
+        private readonly IReplyMessageProcessor _replyMessageProcessor;
+        private readonly IQueryMessageProcessor _queryMessageProcessor;
+        private readonly IClientManageProcessor _clientManageProcessor;
         private readonly IPullRequestHoldService _pullRequestHoldService;
         private readonly INotifyMessageArrivingListener _notifyMessageArrivingListener;
         private readonly IConsumerIdsChangeListener _consumerIdsChangeListener;
@@ -62,6 +65,7 @@ namespace OpenNetQ.Broker
         private readonly IBrokerFastFailure _brokerFastFailure;
         private readonly IMessageStore _messageStore;
         private readonly IRemotingServer _remotingServer;
+        private readonly OpenNetQTaskScheduler _scheduler = new OpenNetQTaskScheduler(1, "BrokerControllerScheduledTask");
         private readonly FixedSchedule _registerBrokerAllFixedSchedule = new FixedSchedule("BrokerControllerFixedSchedule", TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30));
 
         #region alone thread pool
@@ -96,6 +100,9 @@ namespace OpenNetQ.Broker
             _consumerOffsetManager = GetRequiredService<IConsumerOffsetManager>();
             _topicConfigManager = GetRequiredService<ITopicConfigManager>();
             _pullMessageProcessor = GetRequiredService<IPullMessageProcessor>();
+            _replyMessageProcessor = GetRequiredService<IReplyMessageProcessor>();
+            _queryMessageProcessor = GetRequiredService<IQueryMessageProcessor>();
+            _clientManageProcessor = GetRequiredService<IClientManageProcessor>();
             _pullRequestHoldService = GetRequiredService<IPullRequestHoldService>();
             _notifyMessageArrivingListener = GetRequiredService<INotifyMessageArrivingListener>();
             _consumerIdsChangeListener = GetRequiredService<IConsumerIdsChangeListener>();
@@ -154,40 +161,28 @@ namespace OpenNetQ.Broker
 
             //PullMessageProcessor
             _remotingServer.RegisterProcessor(RequestCode.PULL_MESSAGE, _pullMessageProcessor, _pullMessageScheduler);
-            _pullMessageProcessor.registerConsumeMessageHook(consumeMessageHookList);
+            _pullMessageProcessor.RegisterConsumeMessageHook(consumeMessageHooks);
 
             /**
              * ReplyMessageProcessor
              */
-            ReplyMessageProcessor replyMessageProcessor = new ReplyMessageProcessor(this);
-            replyMessageProcessor.registerSendMessageHook(sendMessageHookList);
-
-            this.remotingServer.registerProcessor(RequestCode.SEND_REPLY_MESSAGE, replyMessageProcessor, replyMessageExecutor);
-            this.remotingServer.registerProcessor(RequestCode.SEND_REPLY_MESSAGE_V2, replyMessageProcessor, replyMessageExecutor);
-            this.fastRemotingServer.registerProcessor(RequestCode.SEND_REPLY_MESSAGE, replyMessageProcessor, replyMessageExecutor);
-            this.fastRemotingServer.registerProcessor(RequestCode.SEND_REPLY_MESSAGE_V2, replyMessageProcessor, replyMessageExecutor);
+            _replyMessageProcessor.RegisterSendMessageHook(sendMessageHooks);
+            _remotingServer.RegisterProcessor(RequestCode.SEND_REPLY_MESSAGE, _replyMessageProcessor, _processReplyMessageScheduler);
+            _remotingServer.RegisterProcessor(RequestCode.SEND_REPLY_MESSAGE_V2, _replyMessageProcessor, _processReplyMessageScheduler);
 
             /**
              * QueryMessageProcessor
              */
-            NettyRequestProcessor queryProcessor = new QueryMessageProcessor(this);
-            this.remotingServer.registerProcessor(RequestCode.QUERY_MESSAGE, queryProcessor, this.queryMessageExecutor);
-            this.remotingServer.registerProcessor(RequestCode.VIEW_MESSAGE_BY_ID, queryProcessor, this.queryMessageExecutor);
-
-            this.fastRemotingServer.registerProcessor(RequestCode.QUERY_MESSAGE, queryProcessor, this.queryMessageExecutor);
-            this.fastRemotingServer.registerProcessor(RequestCode.VIEW_MESSAGE_BY_ID, queryProcessor, this.queryMessageExecutor);
+            _remotingServer.RegisterProcessor(RequestCode.QUERY_MESSAGE, _queryMessageProcessor, _queryMessageScheduler);
+            _remotingServer.RegisterProcessor(RequestCode.VIEW_MESSAGE_BY_ID, _queryMessageProcessor, _queryMessageScheduler);
 
             /**
              * ClientManageProcessor
              */
-            ClientManageProcessor clientProcessor = new ClientManageProcessor(this);
-            this.remotingServer.registerProcessor(RequestCode.HEART_BEAT, clientProcessor, this.heartbeatExecutor);
-            this.remotingServer.registerProcessor(RequestCode.UNREGISTER_CLIENT, clientProcessor, this.clientManageExecutor);
-            this.remotingServer.registerProcessor(RequestCode.CHECK_CLIENT_CONFIG, clientProcessor, this.clientManageExecutor);
+            _remotingServer.RegisterProcessor(RequestCode.HEART_BEAT, _clientManageProcessor, this._clientManageScheduler);
+            _remotingServer.RegisterProcessor(RequestCode.UNREGISTER_CLIENT, _clientManageProcessor, this._clientManageScheduler);
+            _remotingServer.RegisterProcessor(RequestCode.CHECK_CLIENT_CONFIG, _clientManageProcessor, this._clientManageScheduler);
 
-            this.fastRemotingServer.registerProcessor(RequestCode.HEART_BEAT, clientProcessor, this.heartbeatExecutor);
-            this.fastRemotingServer.registerProcessor(RequestCode.UNREGISTER_CLIENT, clientProcessor, this.clientManageExecutor);
-            this.fastRemotingServer.registerProcessor(RequestCode.CHECK_CLIENT_CONFIG, clientProcessor, this.clientManageExecutor);
 
             /**
              * ConsumerManageProcessor
@@ -215,15 +210,24 @@ namespace OpenNetQ.Broker
             this.fastRemotingServer.registerDefaultProcessor(adminProcessor, this.adminBrokerExecutor);
 
 
-            _=Task.Factory.StartNew(state =>
+            _scheduler.RunFixedRate(() =>
             {
-                while()
-                RegisterBrokerAll(true,false,_brokerOption.IsForceRegister);
-            }, null, TaskCreationOptions.LongRunning);
+                try
+                {
+                    Console.WriteLine("RegisterBrokerAll run fixed rate start");
+                    RegisterBrokerAll(true, false, _brokerOption.IsForceRegister);
+                    Console.WriteLine("RegisterBrokerAll run fixed rate end");
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, "RegisterBrokerAll Exception");
+                }
+            }, TimeSpan.FromMilliseconds(10000), TimeSpan.FromMilliseconds(Math.Max(10000, Math.Min(_brokerOption.RegisterNameServerPeriod,60000))));
+           
         }
 
         private readonly object _registerBrokerAllLock = new();
-        public void RegisterBrokerAll(bool checkOrderConfig, bool oneway, bool forceRegister)
+        public  void RegisterBrokerAll(bool checkOrderConfig, bool oneway, bool forceRegister)
         {
             lock (_registerBrokerAllLock)
             {

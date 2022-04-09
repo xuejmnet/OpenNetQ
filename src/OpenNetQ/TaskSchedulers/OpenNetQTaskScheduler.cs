@@ -267,5 +267,9 @@ namespace OpenNetQ.TaskSchedulers
         }
         #endregion
 
+        public bool IsStop()
+        {
+            return _run == false;
+        }
     }
 }

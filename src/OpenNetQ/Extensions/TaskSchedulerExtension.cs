@@ -3,11 +3,30 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using OpenNetQ.TaskSchedulers;
 
 namespace OpenNetQ.Extensions
 {
     public static class TaskSchedulerExtension
     {
+        public static Task RunFixedRate(this OpenNetQTaskScheduler scheduler,Action action,TimeSpan initialDelay ,TimeSpan period)
+        {
+            var fixedRateSchedule= Task.Factory.StartNew(async ()=>{
+                {
+                    var initialDelayTotalMilliseconds = initialDelay.TotalMilliseconds;
+                    if (initialDelayTotalMilliseconds > 0)
+                    {
+                        await Task.Delay(initialDelay);
+                    }
+                    while (!scheduler.IsStop())
+                    {
+                        action();
+                        await Task.Delay(period);
+                    }
+                }
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, scheduler);
+            return fixedRateSchedule;
+        }
         #region 线程中执行
         /// <summary>
         /// 线程中执行

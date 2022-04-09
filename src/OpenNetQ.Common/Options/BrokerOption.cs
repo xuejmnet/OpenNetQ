@@ -22,6 +22,7 @@ namespace OpenNetQ.Common.Options
         public int RegisterBrokerTimeoutMills { get; set; } = 6000;
         public bool IsCompressedRegister { get; set; } = false;
         public bool IsForceRegister { get; set; } = true;
+        public int RegisterNameServerPeriod { get; set; }=30000;
 
 
         public static string LocalHostName()
