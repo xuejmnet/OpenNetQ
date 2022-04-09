@@ -168,7 +168,6 @@ namespace OpenNetQ.Remoting.Netty
 
             try
             {
-                _publicOpenNetQTaskScheduler.CancelAll();
                 _publicOpenNetQTaskScheduler.Dispose();
             }
             catch (Exception e)

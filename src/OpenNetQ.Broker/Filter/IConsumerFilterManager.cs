@@ -8,5 +8,6 @@ namespace OpenNetQ.Broker.Filter
 {
     public interface IConsumerFilterManager
     {
+        void Persist();
     }
 }

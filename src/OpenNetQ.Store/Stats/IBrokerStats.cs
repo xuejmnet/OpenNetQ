@@ -8,5 +8,6 @@ namespace OpenNetQ.Store.Stats
 {
     public interface IBrokerStats
     {
+        void Record();
     }
 }

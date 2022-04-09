@@ -25,6 +25,7 @@ namespace OpenNetQ.Common.Options
         public int RegisterNameServerPeriod { get; set; }=30000;
 
 
+
         public static string LocalHostName()
         {
             try
@@ -83,5 +84,9 @@ namespace OpenNetQ.Common.Options
         public bool RejectTransactionMessage = false;
 
         public bool EnableDLegerCommitLog { get; set; } = false;
+
+        public int TransactionCheckInterval { get; set; }= 60 * 1000;
+        public string? NameServerAddress { get; set; }
+        public bool IsFetchNamesrvAddrByAddressServer { get; set; } = false;
     }
 }

@@ -25,5 +25,9 @@ namespace OpenNetQ.Broker.Out
             int timeoutMills,
             bool compressed
         );
+
+        void UpdateNameServerAddressList(string addrs);
+
+        string FetchNameServerAddr();
     }
 }

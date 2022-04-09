@@ -25,10 +25,10 @@ namespace OpenNetQ.TaskSchedulers
         private readonly string? _threadNamePrefix;
         private int _auxiliaryThreadTimeOut = 20000; //辅助线程释放时间
         private int _activeThreadCount = 0;
-        private System.Timers.Timer _timer;
+        private System.Timers.Timer? _timer;
         private object _lockCreateTimer = new object();
         private bool _run = true;
-        private SemaphoreSlim _sem = null;
+        private readonly SemaphoreSlim _sem;
         private int _semMaxCount = int.MaxValue; //可以同时授予的信号量的最大请求数
         private int _semCount = 0; //可用信号量请求数
         private int _runCount = 0; //正在执行的和等待执行的任务数量
@@ -76,11 +76,11 @@ namespace OpenNetQ.TaskSchedulers
             CreateCoreThreads(coreThreadCount);
         }
 
-        public OpenNetQTaskScheduler(int threadCount):this(threadCount,threadCount, 2000, null)
+        public OpenNetQTaskScheduler(int threadCount):this(threadCount,threadCount, 20000, null)
         {
 
         }
-        public OpenNetQTaskScheduler(int coreThreadCount, int maxThreadCount) : this(coreThreadCount, maxThreadCount, 2000, null)
+        public OpenNetQTaskScheduler(int coreThreadCount, int maxThreadCount) : this(coreThreadCount, maxThreadCount, 20000, null)
         {
 
         }
@@ -88,11 +88,11 @@ namespace OpenNetQ.TaskSchedulers
         {
 
         }
-        public OpenNetQTaskScheduler(int threadCount,string? threadNamePrefix):this(threadCount,threadCount, 2000, threadNamePrefix)
+        public OpenNetQTaskScheduler(int threadCount,string? threadNamePrefix):this(threadCount,threadCount, 20000, threadNamePrefix)
         {
             
         }
-        public OpenNetQTaskScheduler(int threadCount, int maxThreadCount, string? threadNamePrefix):this(threadCount, maxThreadCount, 2000, threadNamePrefix)
+        public OpenNetQTaskScheduler(int threadCount, int maxThreadCount, string? threadNamePrefix):this(threadCount, maxThreadCount, 20000, threadNamePrefix)
         {
             
         }
@@ -141,7 +141,7 @@ namespace OpenNetQ.TaskSchedulers
         public void Dispose()
         {
             _run = false;
-
+            CancelAll();
             if (_timer != null)
             {
                 _timer.Stop();
@@ -168,8 +168,7 @@ namespace OpenNetQ.TaskSchedulers
             for (int i = 0; i < _coreThreadCount; i++)
             {
                 Interlocked.Increment(ref _activeThreadCount);
-                Thread thread = null;
-                thread = new Thread(new ThreadStart(() =>
+                Thread thread = new Thread(new ThreadStart(() =>
                 {
                     Task task;
                     while (_run)
@@ -213,8 +212,7 @@ namespace OpenNetQ.TaskSchedulers
         private void CreateThread()
         {
             Interlocked.Increment(ref _activeThreadCount);
-            Thread thread = null;
-            thread = new Thread(new ThreadStart(() =>
+            Thread thread = new Thread(new ThreadStart(() =>
             {
                 Task task;
                 DateTime dt = DateTime.Now;
@@ -259,17 +257,12 @@ namespace OpenNetQ.TaskSchedulers
         /// </summary>
         public void CancelAll()
         {
-            Task tempTask;
-            while (_tasks.TryDequeue(out tempTask))
+            while (_tasks.TryDequeue(out var tempTask))
             {
                 Interlocked.Decrement(ref _runCount);
             }
         }
         #endregion
 
-        public bool IsStop()
-        {
-            return _run == false;
-        }
     }
 }

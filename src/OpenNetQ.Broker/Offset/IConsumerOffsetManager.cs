@@ -8,5 +8,6 @@ namespace OpenNetQ.Broker.Offset
 {
     public interface IConsumerOffsetManager
     {
+        void Persist();
     }
 }

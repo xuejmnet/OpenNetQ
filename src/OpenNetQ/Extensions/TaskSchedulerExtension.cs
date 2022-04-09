@@ -9,22 +9,30 @@ namespace OpenNetQ.Extensions
 {
     public static class TaskSchedulerExtension
     {
-        public static Task RunFixedRate(this OpenNetQTaskScheduler scheduler,Action action,TimeSpan initialDelay ,TimeSpan period)
+        public static Task RunFixedRate(this OpenNetQTaskScheduler scheduler,Action action,TimeSpan initialDelay ,TimeSpan period, Action<Exception>? errorAction = null)
         {
-            var fixedRateSchedule= Task.Factory.StartNew(async ()=>{
+            var fixedRateSchedule = Task.Factory.StartNew(async () => {
                 {
                     var initialDelayTotalMilliseconds = initialDelay.TotalMilliseconds;
                     if (initialDelayTotalMilliseconds > 0)
                     {
                         await Task.Delay(initialDelay);
                     }
-                    while (!scheduler.IsStop())
+                    while (true)
                     {
-                        action();
-                        await Task.Delay(period);
+                        try
+                        {
+                            action();
+                            await Task.Delay(period);
+                        }
+                        catch (Exception ex)
+                        {
+                            if (errorAction != null) errorAction(ex);
+                            throw;
+                        }
                     }
                 }
-            }, CancellationToken.None, TaskCreationOptions.LongRunning, scheduler);
+            }, CancellationToken.None, TaskCreationOptions.None, scheduler);
             return fixedRateSchedule;
         }
         #region 线程中执行
