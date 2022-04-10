@@ -21,8 +21,8 @@ namespace OpenNetQ.Broker.Transaction
     {
         private readonly BrokerOption _brokerOption;
 
-        private static readonly ILogger
-            _logger = OpenNetQLoggerFactory.CreateLogger(LoggerName.TRANSACTION_LOGGER_NAME);
+        private static readonly ILogger<TransactionalMessageCheckService>
+            _logger = OpenNetQLoggerFactory.CreateLogger<TransactionalMessageCheckService>();
 
         public TransactionalMessageCheckService(BrokerOption brokerOption)
         {

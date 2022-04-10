@@ -2,6 +2,7 @@ using DotNetty.Common.Internal.Logging;
 using DotNetty.Transport.Channels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using OpenNetQ.Logging;
 using OpenNetQ.Remoting.Exceptions;
 using OpenNetQ.Remoting.Protocol;
 
@@ -18,12 +19,11 @@ namespace OpenNetQ.Remoting.Netty.Handlers
     /// </summary>
     public class NettyServerHandler : SimpleChannelInboundHandler<RemotingCommand>
     {
-        private readonly ILogger<NettyServerHandler> _logger;
+        private readonly ILogger<NettyServerHandler> _logger=OpenNetQLoggerFactory.CreateLogger<NettyServerHandler>();
         public override bool IsSharable => true;
 
-        public NettyServerHandler(ILoggerFactory loggerFactory)
+        public NettyServerHandler()
         {
-            _logger = loggerFactory.CreateLogger<NettyServerHandler>();
         }
 
         protected override void ChannelRead0(IChannelHandlerContext ctx, RemotingCommand msg)

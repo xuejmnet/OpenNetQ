@@ -12,9 +12,9 @@ using OpenNetQ.Extensions;
 */
 namespace OpenNetQ.Core
 {
-    public class ServerContainer
+    public class OpenNetQServiceContainer
     {
-        private ServerContainer()
+        private OpenNetQServiceContainer()
         {
 
         }

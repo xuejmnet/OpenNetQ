@@ -12,7 +12,7 @@ namespace OpenNetQ.Common.NameSrv
     {
         public bool IsOrderMessageEnable { get; set; } = false;
         
-        public bool ClusterTest{ get; set; } = false;
+        public bool IsClusterTest{ get; set; } = false;
         public string ProductEnvName { get; set; } = "center";
         public string ConfigStorePath { get; set; } = Path.Combine("NameServer", "NameServer.Text");
         public string KvConfigPath { get; set; } = Path.Combine("NameServer", "KvConfig.Text");

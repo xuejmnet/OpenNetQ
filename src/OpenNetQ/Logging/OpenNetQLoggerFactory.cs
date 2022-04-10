@@ -20,7 +20,7 @@ namespace OpenNetQ.Logging
             
         }
         public static ILoggerFactory DefaultFactory { get; set; }
-        public static ILogger CreateLogger<T>() => DefaultFactory.CreateLogger<T>();
+        public static ILogger<T> CreateLogger<T>() => DefaultFactory.CreateLogger<T>();
         public static ILogger CreateLogger(string categoryName) => DefaultFactory.CreateLogger(categoryName);
     }
 }

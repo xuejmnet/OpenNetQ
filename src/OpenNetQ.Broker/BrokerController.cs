@@ -38,7 +38,7 @@ namespace OpenNetQ.Broker
 {
     public class BrokerController : InjectService
     {
-        private static readonly ILogger _logger = OpenNetQLoggerFactory.CreateLogger<BrokerController>();
+        private static readonly ILogger<BrokerController> _logger = OpenNetQLoggerFactory.CreateLogger<BrokerController>();
         private readonly IServiceProvider _serviceProvider;
         private readonly BrokerOption _brokerOption;
         private readonly RemotingServerOption _remotingServerOption;

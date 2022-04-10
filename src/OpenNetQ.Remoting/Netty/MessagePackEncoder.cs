@@ -4,6 +4,7 @@ using DotNetty.Codecs;
 using DotNetty.Common.Internal.Logging;
 using DotNetty.Transport.Channels;
 using Microsoft.Extensions.Logging;
+using OpenNetQ.Logging;
 using OpenNetQ.Remoting.Common;
 using OpenNetQ.Remoting.Protocol;
 
@@ -17,12 +18,11 @@ namespace KhaosLog.NettyProvider.Handlers
 */
     public class MessagePackEncoder : MessageToByteEncoder<RemotingCommand>
     {
-        private readonly ILogger<MessagePackEncoder> _logger;
+        private readonly ILogger<MessagePackEncoder> _logger=OpenNetQLoggerFactory.CreateLogger<MessagePackEncoder>();
         public override bool IsSharable => true;
 
-        public MessagePackEncoder(ILoggerFactory loggerFactory)
+        public MessagePackEncoder()
         {
-            _logger = loggerFactory.CreateLogger<MessagePackEncoder>();
         }
         protected override void Encode(IChannelHandlerContext context, RemotingCommand cmd, IByteBuffer output)
         {

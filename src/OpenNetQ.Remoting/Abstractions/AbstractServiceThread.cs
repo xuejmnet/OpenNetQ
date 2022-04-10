@@ -12,7 +12,7 @@ namespace OpenNetQ.Remoting.Abstractions
 {
     public abstract class AbstractServiceThread: IServiceThread
     {
-        private static readonly ILogger _logger = OpenNetQLoggerFactory.CreateLogger(LoggerName.COMMON_LOGGER_NAME);
+        private static readonly ILogger<AbstractServiceThread> _logger = OpenNetQLoggerFactory.CreateLogger<AbstractServiceThread>();
 
         private static readonly long JOIN_TIME = 90 * 1000;
         protected  Thread thread;

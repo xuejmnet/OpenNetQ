@@ -1,6 +1,7 @@
 using DotNetty.Handlers.Timeout;
 using DotNetty.Transport.Channels;
 using Microsoft.Extensions.Logging;
+using OpenNetQ.Logging;
 using OpenNetQ.Remoting.Common;
 
 namespace OpenNetQ.Remoting.Netty.Handlers
@@ -16,10 +17,9 @@ namespace OpenNetQ.Remoting.Netty.Handlers
     /// </summary>
     public class NettyServerConnectManagerHandler : ChannelDuplexHandler
     {
-        private readonly ILogger<NettyServerConnectManagerHandler> _logger;
-        public NettyServerConnectManagerHandler(ILoggerFactory loggerFactory)
+        private readonly ILogger<NettyServerConnectManagerHandler> _logger=OpenNetQLoggerFactory.CreateLogger<NettyServerConnectManagerHandler>();
+        public NettyServerConnectManagerHandler()
         {
-            _logger = loggerFactory.CreateLogger<NettyServerConnectManagerHandler>();
         }
         public override bool IsSharable => true;
 

@@ -22,11 +22,11 @@ namespace OpenNetQ.Remoting.Abstractions
 {
     public abstract class AbstractNettyRemoting
     {
+        private readonly ILogger<AbstractNettyRemoting> _logger = OpenNetQLoggerFactory.CreateLogger<AbstractNettyRemoting>();
         private readonly RemotingServerOption _serverOption;
         private readonly int _permitsOneway;
         private readonly int _permitsAsync;
         private static IInternalNetQLogger _log = InternalNetQLoggerFactory.GetLogger<AbstractNettyRemoting>();
-        private readonly ILogger<AbstractNettyRemoting> _logger;
         private readonly SemaphoreSlim _semaphoreOneway;
         private readonly SemaphoreSlim _semaphoreAsync;
         protected readonly Dictionary<int, (INettyRequestProcessor, OpenNetQTaskScheduler)> ProcessorTables = new(64);
@@ -40,11 +40,10 @@ namespace OpenNetQ.Remoting.Abstractions
          */
         protected List<IRPCHook> RpcHooks = new List<IRPCHook>();
 
-        protected NettyEventExecutor NettyEventExecutor = new NettyEventExecutor();
+        public NettyEventExecutor NettyEventExecutor = new NettyEventExecutor();
 
-        public AbstractNettyRemoting(ILoggerFactory loggerFactory,RemotingServerOption serverOption)
+        public AbstractNettyRemoting(RemotingServerOption serverOption)
         {
-            _logger = loggerFactory.CreateLogger<AbstractNettyRemoting>();
             _serverOption = serverOption;
             _permitsOneway = serverOption.PermitsOneway;
             _permitsAsync = serverOption.PermitsAsync;

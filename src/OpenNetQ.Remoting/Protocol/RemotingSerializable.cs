@@ -19,7 +19,7 @@ namespace OpenNetQ.Remoting.Protocol
         }
         public static string ToJson<T>(T obj)
         {
-            return ServerContainer.GetRequiredService<IJsonSerializer>().ToJson(obj);
+            return OpenNetQServiceContainer.GetRequiredService<IJsonSerializer>().ToJson(obj);
         }
         public static T Decode<T>(byte[] data)
         {
@@ -29,7 +29,7 @@ namespace OpenNetQ.Remoting.Protocol
 
         public static T FromJson<T>(string json)
         {
-            return ServerContainer.GetRequiredService<IJsonSerializer>().FromJson<T>(json);
+            return OpenNetQServiceContainer.GetRequiredService<IJsonSerializer>().FromJson<T>(json);
         }
 
         public byte[] Encode()

@@ -3,6 +3,7 @@ using DotNetty.Codecs;
 using DotNetty.Common.Internal.Logging;
 using DotNetty.Transport.Channels;
 using Microsoft.Extensions.Logging;
+using OpenNetQ.Logging;
 using OpenNetQ.Remoting.Common;
 using OpenNetQ.Remoting.Protocol;
 
@@ -16,11 +17,10 @@ namespace OpenNetQ.Remoting.Netty
 */
     public class MessagePackDecoder: ByteToMessageDecoder
     {
-        private readonly ILogger<MessagePackDecoder> _logger;
+        private readonly ILogger<MessagePackDecoder> _logger = OpenNetQLoggerFactory.CreateLogger<MessagePackDecoder>();
 
-        public MessagePackDecoder(ILoggerFactory loggerFactory)
+        public MessagePackDecoder()
         {
-            _logger = loggerFactory.CreateLogger<MessagePackDecoder>();
         }
         
         protected override void Decode(IChannelHandlerContext context, IByteBuffer input, List<object> output)
