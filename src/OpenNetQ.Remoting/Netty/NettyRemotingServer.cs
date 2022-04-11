@@ -28,7 +28,7 @@ namespace OpenNetQ.Remoting.Netty
         private static readonly ILogger<NettyRemotingServer> _logger = OpenNetQLoggerFactory.CreateLogger<NettyRemotingServer>();
         private readonly RemotingServerOption _option;
         private readonly bool _useTls;
-        private readonly OpenNetQTaskScheduler _publicOpenNetQTaskScheduler;
+        private readonly OpenNetQTaskScheduler _serverCallbackSchedluer;
         private readonly Timer _timer = new Timer(3000)
         {
             AutoReset = true,
@@ -50,7 +50,7 @@ namespace OpenNetQ.Remoting.Netty
         private MessagePackDecoder _decoder;
         private NettyServerConnectManagerHandler _connectManagerHandler;
         private NettyServerHandler _nettyServerHandler;
-        public NettyRemotingServer(RemotingServerOption option) : base(option)
+        public NettyRemotingServer(RemotingServerOption option) : base(option.PermitsOneway,option.PermitsAsync)
         {
             _option = option;
             _useTls = option.UseTls();
@@ -69,12 +69,12 @@ namespace OpenNetQ.Remoting.Netty
             }
 
             var threads = Math.Max(4,_option.ServerCallbackExecutorThreads);
-            _publicOpenNetQTaskScheduler = new OpenNetQTaskScheduler(threads, threads);
+            _serverCallbackSchedluer = new OpenNetQTaskScheduler(threads, threads);
         }
 
         public override OpenNetQTaskScheduler? GetCallbackExecutor()
         {
-            throw new NotImplementedException();
+            return _serverCallbackSchedluer;
         }
 
         public async Task StartAsync()
@@ -104,7 +104,7 @@ namespace OpenNetQ.Remoting.Netty
                     }
                     // pipeline.AddLast("tls", new TlsHandler(stream => new SslStream(stream, true, (sender, certificate, chain, errors) => true), new ClientTlsSettings(_targetHost)));
                     pipeline.AddLast("framing-dec", new LengthFieldBasedFrameDecoder(int.MaxValue, 0, 4, 0, 4));
-                    pipeline.AddLast(new MessagePackDecoder());
+                    pipeline.AddLast(_decoder);
                     pipeline.AddLast("framing-enc", new LengthFieldPrepender(4, false));
                     //实体类编码器,心跳管理器,连接管理器
                     pipeline.AddLast(_encoder
@@ -141,6 +141,7 @@ namespace OpenNetQ.Remoting.Netty
         private void InitSharableHandlers()
         {
             _encoder = new MessagePackEncoder();
+            _decoder = new MessagePackDecoder();
             _connectManagerHandler = new NettyServerConnectManagerHandler();
             _connectManagerHandler.OnNettyEventTrigger += OnNettyEventTrigger;
             _nettyServerHandler = new NettyServerHandler();
@@ -166,7 +167,7 @@ namespace OpenNetQ.Remoting.Netty
 
             try
             {
-                _publicOpenNetQTaskScheduler.Dispose();
+                _serverCallbackSchedluer.Dispose();
             }
             catch (Exception e)
             {
@@ -184,7 +185,7 @@ namespace OpenNetQ.Remoting.Netty
 
         public void RegisterProcessor(int requestCode, INettyRequestProcessor processor, OpenNetQTaskScheduler? scheduler)
         {
-            ProcessorTables.Add(requestCode,(processor,scheduler??_publicOpenNetQTaskScheduler));
+            ProcessorTables.Add(requestCode,(processor,scheduler??_serverCallbackSchedluer));
         }
 
         public void RegisterDefaultProcessor(INettyRequestProcessor processor, OpenNetQTaskScheduler scheduler)

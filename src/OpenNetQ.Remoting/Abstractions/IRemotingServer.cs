@@ -22,6 +22,5 @@ namespace OpenNetQ.Remoting.Abstractions
         Task<RemotingCommand> InvokeAsync(IChannel channel, RemotingCommand request, long timeoutMillis);
         Task InvokeCallbackAsync(IChannel channel, RemotingCommand request, long timeoutMillis, Action<ResponseTask> callback);
         Task InvokeOnewayAsync(IChannel channel, RemotingCommand request, long timeoutMillis);
-
     }
 }
