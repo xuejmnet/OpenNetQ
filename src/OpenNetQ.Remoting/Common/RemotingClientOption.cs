@@ -24,6 +24,10 @@ namespace OpenNetQ.Remoting.Common
         /// tsl证书
         /// </summary>
         public X509Certificate2? TlsCertificate { get; set; }
+        /// <summary>
+        /// 心跳间隔秒
+        /// </summary>
+        public int AllIdleTime { get; set; } = 30;
         public bool UseTls()
         {
             return TlsCertificate != null;

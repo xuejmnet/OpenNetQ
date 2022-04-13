@@ -28,7 +28,7 @@ namespace OpenNetQ.Remoting.Protocol
             SerializeTypeConfigInThisServer = SerializeTypeEnum.JSON;
         }
 
-        public short Code { get; set; }
+        public int Code { get; set; }
         public LanguageCodeEnum Language { get; set; } = LanguageCodeEnum.DOTNET;
         public short Version { get; set; } = 0;
         public int Opaque { get; set; } = requestId.GetAndIncrement();
