@@ -10,6 +10,6 @@ namespace OpenNetQ.Remoting.Abstractions
     {
         Task StartAsync();
         Task StopAsync();
-        void RegisterRPCHook(IRPCHook hook);
+        void RegisterRPCHook(IRPCHook? hook);
     }
 }

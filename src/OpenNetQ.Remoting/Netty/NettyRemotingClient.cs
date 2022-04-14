@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Security;
 using System.Text;
 using System.Threading.Tasks;
@@ -15,6 +17,7 @@ using DotNetty.Transport.Libuv;
 using J2N.Threading.Atomic;
 using KhaosLog.NettyProvider.Handlers;
 using Microsoft.Extensions.Logging;
+using OpenNetQ.Extensions;
 using OpenNetQ.Logging;
 using OpenNetQ.Remoting.Abstractions;
 using OpenNetQ.Remoting.Common;
@@ -22,6 +25,7 @@ using OpenNetQ.Remoting.Netty.Abstractions;
 using OpenNetQ.Remoting.Netty.Handlers;
 using OpenNetQ.Remoting.Protocol;
 using OpenNetQ.TaskSchedulers;
+using Timer = System.Timers.Timer;
 
 namespace OpenNetQ.Remoting.Netty
 {
@@ -33,29 +37,43 @@ namespace OpenNetQ.Remoting.Netty
         private static readonly ILogger<NettyRemotingClient> _logger = OpenNetQLoggerFactory.CreateLogger<NettyRemotingClient>();
 
         private readonly RemotingClientOption _option;
+        private readonly IPEndPoint _ipEndPoint;
         private readonly bool _useTls;
+        //private readonly OpenNetQTaskScheduler _publicSchedluer;
         private readonly OpenNetQTaskScheduler _clientCallbackSchedluer;
+        private readonly int LOCK_TIMEOUT_MILLIS = 3000;
+        private readonly object _lockChannelTables = new();
+        private readonly System.Timers.Timer _timer = new Timer(3000)
+        {
+            AutoReset = true,
+            Enabled = true
+        };
 
+        private readonly ConcurrentDictionary<string /* addr */, ChannelWrapper> _channelTables = new ();
+
+        private readonly AtomicReference<List<string>> _namesrvAddrList = new AtomicReference<List<String>>();
+        private readonly AtomicReference<string> _namesrvAddrChoosed = new AtomicReference<String>();
         private MultithreadEventLoopGroup group;
 
         private Bootstrap bootstrap;
         public NettyRemotingClient(RemotingClientOption option) : base(option.PermitsOneway, option.PermitsAsync)
         {
             _option = option;
+            _ipEndPoint = new IPEndPoint(_option.Host, _option.Port);
             _useTls = option.UseTls();
-            group = new MultithreadEventLoopGroup();
            
             var threads = Math.Max(4, _option.ClientCallbackExecutorThreads);
             _clientCallbackSchedluer = new OpenNetQTaskScheduler(threads, threads, "NettyRemotingClientCallback_");
         }
 
-        public override OpenNetQTaskScheduler? GetCallbackExecutor()
+        public override OpenNetQTaskScheduler GetCallbackExecutor()
         {
             return _clientCallbackSchedluer;
         }
 
         public async Task StartAsync()
         {
+            group = new MultithreadEventLoopGroup(Math.Max(1, _option.ClientWorkThreads));
             bootstrap = new Bootstrap();
             bootstrap
                 .Group(group)
@@ -85,18 +103,38 @@ namespace OpenNetQ.Remoting.Netty
                         new NettyClientHandler()
                     );
                 }));
+            if (_option.ClientSocketSndBufSize > 0)
+            {
+                _logger.LogInformation($"client set SO_SNDBUF to {_option.ClientSocketSndBufSize}");
+                bootstrap.Option(ChannelOption.SoSndbuf,_option.ClientSocketSndBufSize);
+            }
+            if (_option.ClientSocketRcvBufSize > 0)
+            {
+                _logger.LogInformation($"client set SO_RCVBUF to {_option.ClientSocketRcvBufSize}");
+                bootstrap.Option(ChannelOption.SoRcvbuf,_option.ClientSocketRcvBufSize);
+            }
+            if (_option.WriteBufferLowWaterMark > 0)
+            {
+                _logger.LogInformation($"client set netty WRITE_BUFFER_LOW_WATER_MARK to {_option.WriteBufferLowWaterMark}");
+                bootstrap.Option(ChannelOption.WriteBufferLowWaterMark,_option.WriteBufferLowWaterMark);
+            }
+            if (_option.WriteBufferHighWaterMark > 0)
+            {
+                _logger.LogInformation($"client set netty WRITE_BUFFER_HEIGH_WATER_MARK to {_option.WriteBufferHighWaterMark}");
+                bootstrap.Option(ChannelOption.WriteBufferHighWaterMark,_option.WriteBufferHighWaterMark);
+            }
+
             try
             {
                 _logger.LogInformation("OpenNetQ开始启动----------");
-                // bootstrap绑定到指定端口的行为 就是服务端启动服务，同样的Serverbootstrap可以bind到多个端口
-                await bootstrap.BindAsync(_option.Port);
+
+                await bootstrap.ConnectAsync(_ipEndPoint);
             }
             catch (Exception ex)
             {
-                _logger.LogInformation($"异常:{ex.Message}");
+                _logger.LogError(ex,"OpenNetQ start error.");
             }
 
-            NettyEventExecutor.Start();
             this._timer.Elapsed += (sender, args) =>
             {
                 try
@@ -109,27 +147,153 @@ namespace OpenNetQ.Remoting.Netty
                 }
             };
             _timer.Start();
-            _logger.LogInformation($"OpenNetQ启动完成端口:{_option.Port}----------");
+            NettyEventExecutor.Start();
+            _logger.LogInformation($"OpenNetQ启动完成监听端口:{_option.Port}");
         }
 
-        public Task StopAsync()
+        public async  Task StopAsync()
         {
-            throw new NotImplementedException();
+            try
+            {
+                _logger.LogInformation("NettyRemotingClient 开始停止");
+                this._timer.Stop();
+
+                foreach (var channelTablesValue in _channelTables.Values)
+                {
+                    CloseChannel(null, channelTablesValue.Channel);
+                }
+
+                _channelTables.Clear();
+                NettyEventExecutor.Shutdown();
+                await @group.ShutdownGracefullyAsync(TimeSpan.FromMilliseconds(100), TimeSpan.FromSeconds(1));
+
+                _logger.LogInformation("NettyRemotingClient 已停止");
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,"NettyRemotingClient shutdown exception.");
+            }
+
+            try
+            {
+                _clientCallbackSchedluer.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,"NettyRemotingClient ClientCallbackSchedluer shutdown exception.");
+            }
         }
 
-        public void RegisterRPCHook(IRPCHook hook)
+        public void CloseChannel(string? addr, IChannel? channel)
         {
-            throw new NotImplementedException();
+            if (null == channel)
+                return;
+
+            string addrRemote = addr ?? RemotingHelper.ParseChannelRemoteAddr(channel);
+            try
+            {
+
+                var acquired = Monitor.TryEnter(_lockChannelTables, TimeSpan.FromMilliseconds(LOCK_TIMEOUT_MILLIS));
+                if (!acquired)
+                {
+                    _logger.LogWarning($"closeChannel: try to lock channel table, but timeout, { LOCK_TIMEOUT_MILLIS} ms");
+                    return;
+                }
+
+                try
+                {
+
+                    bool removeItemFromTable = true;
+                    this._channelTables.TryGetValue(addrRemote,out var prevCW);
+
+                    _logger.LogInformation($"CloseChannel: begin close the channel[{addrRemote}] Found: {prevCW != null}");
+
+                    if (null == prevCW)
+                    {
+                        _logger.LogInformation($"CloseChannel: the channel[{addrRemote}] has been removed from the channel table before");
+                        removeItemFromTable = false;
+                    }
+                    else if (!prevCW.Channel.Equals(channel))
+                    {
+                        _logger.LogInformation($"CloseChannel: the channel[{addrRemote}] has been closed before, and has been created again, nothing to do.");
+                        removeItemFromTable = false;
+                    }
+
+                    if (removeItemFromTable)
+                    {
+                        this._channelTables.Remove(addrRemote,out var _);
+                        _logger.LogInformation($"CloseChannel: the channel[{addrRemote}] was removed from channel table");
+                    }
+
+                    RemotingUtil.CloseChannel(channel);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e,"CloseChannel: close the channel exception");
+                }
+                finally
+                {
+                    Monitor.Exit(_lockChannelTables);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "CloseChannel exception");
+            }
         }
 
-        public void UpdateNameServerAddressList(ICollection<string> addrs)
+        public void RegisterRPCHook(IRPCHook? hook)
         {
-            throw new NotImplementedException();
+            if (hook != null && !RpcHooks.Contains(hook))
+            {
+                RpcHooks.Add(hook);
+            }
         }
 
-        public ICollection<string> GetNameServerAddressList()
+        public void UpdateNameServerAddressList(List<string> addrs)
         {
-            throw new NotImplementedException();
+            var old = this._namesrvAddrList.Value;
+            bool update = false;
+
+            if (!addrs.IsEmpty())
+            {
+                if (null == old)
+                {
+                    update = true;
+                }
+                else if (addrs.Count != old.Count)
+                {
+                    update = true;
+                }
+                else
+                {
+                    for (int i = 0; i < addrs.Count && !update; i++)
+                    {
+                        if (!old.Contains(addrs[i]))
+                        {
+                            update = true;
+                        }
+                    }
+                }
+
+                if (update)
+                {
+                    addrs = addrs.OrderBy(o => Guid.NewGuid()).ToList();
+                    _logger.LogInformation($"name server address updated. NEW : {addrs} , OLD: {old}");
+                    this._namesrvAddrList.Value= addrs;
+
+                    if (this._namesrvAddrChoosed.Value!=null&&!addrs.Contains(this._namesrvAddrChoosed.Value))
+                    {
+                        this._namesrvAddrChoosed.Value=null;
+                    }
+                }
+            }
+        }
+
+        public List<string>? GetNameServerAddressList()
+        {
+            return _namesrvAddrList.Value;
         }
 
         public Task<RemotingCommand> InvokeAsync(string addr, RemotingCommand request, long timeoutMillis,
@@ -158,6 +322,16 @@ namespace OpenNetQ.Remoting.Netty
         public bool IsChannelWritable(string addr)
         {
             throw new NotImplementedException();
+        }
+    }
+
+    public class ChannelWrapper
+    {
+        public IChannel Channel { get; }
+
+        public ChannelWrapper(IChannel channel)
+        {
+            Channel = channel;
         }
     }
 }

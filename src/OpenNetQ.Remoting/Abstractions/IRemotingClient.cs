@@ -11,9 +11,9 @@ namespace OpenNetQ.Remoting.Abstractions
 {
     public interface IRemotingClient: IBootstrapper
     {
-        void UpdateNameServerAddressList(ICollection<string> addrs);
-       
-        ICollection<string> GetNameServerAddressList();
+        void UpdateNameServerAddressList(List<string> addrs);
+
+        List<string>? GetNameServerAddressList();
         Task<RemotingCommand> InvokeAsync(string addr, RemotingCommand request, long timeoutMillis, CancellationToken cancellationToken = new CancellationToken());
         Task InvokeCallbackAsync(string addr, RemotingCommand request, long timeoutMillis,Action<ResponseTask> callback, CancellationToken cancellationToken = new CancellationToken());
         Task InvokeOnewayAsync(string addr, RemotingCommand request, long timeoutMillis, CancellationToken cancellationToken = new CancellationToken());

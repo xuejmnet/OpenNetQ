@@ -227,59 +227,53 @@ namespace OpenNetQ.Remoting.Abstractions
             }
         }
 
-        public abstract OpenNetQTaskScheduler? GetCallbackExecutor();
+        public abstract OpenNetQTaskScheduler GetCallbackExecutor();
 
         private void ExecuteInvokeCallback(ResponseTask responseTask)
         {
-            bool runInThisThread = false;
+            //bool runInThisThread = false;
             var executor = this.GetCallbackExecutor();
-            if (executor != null)
+
+            try
             {
-                try
+                executor.Run(() =>
                 {
-                    executor.Run(() =>
+                    try
                     {
-                        try
-                        {
-                            responseTask.ExecuteInvokeCallback();
-                        }
-                        catch (Exception e)
-                        {
-                            _log.Warn("execute callback in executor exception, and callback throw", e);
-                        }
-                        finally
-                        {
-                            responseTask.Release();
-                        }
+                        responseTask.ExecuteInvokeCallback();
+                    }
+                    catch (Exception e)
+                    {
+                        _log.Warn("execute callback in executor exception, and callback throw", e);
+                    }
+                    finally
+                    {
+                        responseTask.Release();
+                    }
 
-                    });
-                }
-                catch (Exception e)
-                {
-                    runInThisThread = true;
-                    _log.Warn("execute callback in executor exception, maybe executor busy", e);
-                }
+                });
             }
-            else
+            catch (Exception e)
             {
-                runInThisThread = true;
+                //runInThisThread = true;
+                _log.Warn("execute callback in executor exception, maybe executor busy", e);
             }
 
-            if (runInThisThread)
-            {
-                try
-                {
-                    responseTask.ExecuteInvokeCallback();
-                }
-                catch (Exception e)
-                {
-                    _log.Warn("executeInvokeCallback Exception", e);
-                }
-                finally
-                {
-                    responseTask.Release();
-                }
-            }
+            //if (runInThisThread)
+            //{
+            //    try
+            //    {
+            //        responseTask.ExecuteInvokeCallback();
+            //    }
+            //    catch (Exception e)
+            //    {
+            //        _log.Warn("executeInvokeCallback Exception", e);
+            //    }
+            //    finally
+            //    {
+            //        responseTask.Release();
+            //    }
+            //}
         }
 
 

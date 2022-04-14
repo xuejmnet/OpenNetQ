@@ -72,7 +72,7 @@ namespace OpenNetQ.Remoting.Netty
             _serverCallbackSchedluer = new OpenNetQTaskScheduler(threads, threads);
         }
 
-        public override OpenNetQTaskScheduler? GetCallbackExecutor()
+        public override OpenNetQTaskScheduler GetCallbackExecutor()
         {
             return _serverCallbackSchedluer;
         }
@@ -135,7 +135,7 @@ namespace OpenNetQ.Remoting.Netty
                 }
             };
             _timer.Start();
-            _logger.LogInformation($"OpenNetQ启动完成端口:{_option.Port}----------");
+            _logger.LogInformation($"OpenNetQ启动完成监听端口:{_option.Port}----------");
         }
 
         private void InitSharableHandlers()
@@ -154,10 +154,10 @@ namespace OpenNetQ.Remoting.Netty
             try
             {
                 this._timer.Stop();
-                _logger.LogInformation("DotNetty开始停止----------");
+                _logger.LogInformation("OpenNetQ开始停止----------");
                 await bossGroup.ShutdownGracefullyAsync(TimeSpan.FromMilliseconds(100), TimeSpan.FromSeconds(1));
                 await workerGroup.ShutdownGracefullyAsync(TimeSpan.FromMilliseconds(100), TimeSpan.FromSeconds(1));
-                _logger.LogInformation("DotNetty已停止----------");
+                _logger.LogInformation("OpenNetQ已停止----------");
                 NettyEventExecutor.Shutdown();
             }
             catch (Exception e)
