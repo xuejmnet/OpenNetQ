@@ -18,5 +18,15 @@ namespace OpenNetQ.Extensions
         {
             return !collection.IsEmpty();
         }
+
+        public static string PrintString(this List<string>? collection)
+        {
+            if (collection is null)
+            {
+                return "[]";
+            }
+
+            return $"[{string.Join(",", collection)}]";
+        }
     }
 }

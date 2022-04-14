@@ -153,7 +153,7 @@ namespace OpenNetQ.Remoting.Abstractions
                         if (!cmd.IsOnewayRPC())
                         {
                             RemotingCommand response = RemotingCommand.CreateResponseCommand(
-                                RemotingSysResponseCode.SYSTEM_ERROR, RemotingHelper.ExceptionSimpleDesc(e));
+                                RemotingSysResponseCode.SYSTEM_ERROR, $"e");
 
                             response.Opaque = opaque;
                             ctx.WriteAndFlushAsync(response);

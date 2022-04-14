@@ -21,10 +21,12 @@ using OpenNetQ.Extensions;
 using OpenNetQ.Logging;
 using OpenNetQ.Remoting.Abstractions;
 using OpenNetQ.Remoting.Common;
+using OpenNetQ.Remoting.Exceptions;
 using OpenNetQ.Remoting.Netty.Abstractions;
 using OpenNetQ.Remoting.Netty.Handlers;
 using OpenNetQ.Remoting.Protocol;
 using OpenNetQ.TaskSchedulers;
+using OpenNetQ.Utils;
 using Timer = System.Timers.Timer;
 
 namespace OpenNetQ.Remoting.Netty
@@ -43,6 +45,7 @@ namespace OpenNetQ.Remoting.Netty
         private readonly OpenNetQTaskScheduler _clientCallbackSchedluer;
         private readonly int LOCK_TIMEOUT_MILLIS = 3000;
         private readonly object _lockChannelTables = new();
+        private readonly object _nameServerChannelLock = new();
         private readonly System.Timers.Timer _timer = new Timer(3000)
         {
             AutoReset = true,
@@ -53,6 +56,7 @@ namespace OpenNetQ.Remoting.Netty
 
         private readonly AtomicReference<List<string>> _namesrvAddrList = new AtomicReference<List<String>>();
         private readonly AtomicReference<string> _namesrvAddrChoosed = new AtomicReference<String>();
+        private readonly AtomicInt32 _namesrvIndex = new AtomicInt32(InitValueIndex());
         private MultithreadEventLoopGroup group;
 
         private Bootstrap bootstrap;
@@ -69,6 +73,12 @@ namespace OpenNetQ.Remoting.Netty
         public override OpenNetQTaskScheduler GetCallbackExecutor()
         {
             return _clientCallbackSchedluer;
+        }
+
+        private static int InitValueIndex()
+        {
+            var random = new Random();
+            return Math.Abs(random.Next() % 999) % 999;
         }
 
         public async Task StartAsync()
@@ -280,7 +290,7 @@ namespace OpenNetQ.Remoting.Netty
                 if (update)
                 {
                     addrs = addrs.OrderBy(o => Guid.NewGuid()).ToList();
-                    _logger.LogInformation($"name server address updated. NEW : {addrs} , OLD: {old}");
+                    _logger.LogInformation($"name server address updated. NEW : {addrs.PrintString()} , OLD: {old.PrintString()}");
                     this._namesrvAddrList.Value= addrs;
 
                     if (this._namesrvAddrChoosed.Value!=null&&!addrs.Contains(this._namesrvAddrChoosed.Value))
@@ -296,10 +306,47 @@ namespace OpenNetQ.Remoting.Netty
             return _namesrvAddrList.Value;
         }
 
-        public Task<RemotingCommand> InvokeAsync(string addr, RemotingCommand request, long timeoutMillis,
+        public async Task<RemotingCommand> InvokeAsync(string addr, RemotingCommand request, long timeoutMillis,
             CancellationToken cancellationToken = new CancellationToken())
         {
-            throw new NotImplementedException();
+            cancellationToken.ThrowIfCancellationRequested();
+            var delay = Task.Delay(TimeSpan.FromSeconds(timeoutMillis));
+            var invokeAsync0 = InvokeAsync0(addr,request,cancellationToken);
+            if (await Task.WhenAny(invokeAsync0, delay) == delay)
+            {
+                throw new RemotingTimeoutException($"invokeSync call the addr[{addr}] timeout");
+            }
+
+            return await invokeAsync0;
+        }
+
+        private async Task<RemotingCommand> InvokeAsync0(string addr, RemotingCommand request, long timeoutMillis,
+            CancellationToken cancellationToken = new CancellationToken())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var channel = await GetAndCreateChannel(addr);
+            if (channel is not null && channel.Active)
+            {
+                try
+                {
+                    DoBeforeRpcHooks(addr, request);
+                    var response = await InvokeSyncImpl(channel,request,timeoutMillis);
+                    DoAfterRpcHooks(RemotingHelper.ParseChannelRemoteAddr(channel),request,response);
+                    return response;
+                }
+                catch (RemotingSendRequestException e)
+                {
+                    
+                }catch(RemotingTimeoutException e)
+                {
+                    
+                }
+            }
+            else
+            {
+                CloseChannel(addr,channel);
+                throw new RemotingConnectException(addr);
+            }
         }
 
         public Task InvokeCallbackAsync(string addr, RemotingCommand request, long timeoutMillis, Action<ResponseTask> callback,
@@ -312,6 +359,149 @@ namespace OpenNetQ.Remoting.Netty
             CancellationToken cancellationToken = new CancellationToken())
         {
             throw new NotImplementedException();
+        }
+
+        private async Task<IChannel?> GetAndCreateChannel(string? addr)
+        {
+            if (addr is null)
+            {
+                return await GetAndCreateNameServerChannelAsync();
+            }
+
+            if (_channelTables.TryGetValue(addr, out var cw) && cw.Channel.Active)
+            {
+                return cw.Channel;
+            }
+
+            return await CreateChannelAsync(addr);
+        }
+
+        private async Task<IChannel?> GetAndCreateNameServerChannelAsync()
+        {
+            var addr = this._namesrvAddrChoosed.Value;
+            if (addr is not null)
+            {
+                if (_channelTables.TryGetValue(addr, out var cw)&&cw.Channel.Active)
+                {
+                    return cw.Channel;
+                }
+            }
+
+            var addrList = _namesrvAddrList.Value;
+            var acquired = Monitor.TryEnter(_nameServerChannelLock,TimeSpan.FromSeconds(LOCK_TIMEOUT_MILLIS));
+            if (acquired)
+            {
+                try
+                {
+                    addr = _namesrvAddrChoosed.Value;
+                    if (addr is not null)
+                    {
+                        if (_channelTables.TryGetValue(addr, out var cw) && cw.Channel.Active)
+                        {
+                            return cw.Channel;
+                        }
+                    }
+
+                    if (addrList.IsNotEmpty())
+                    {
+                        for (int i = 0; i < addrList!.Count; i++)
+                        {
+                            var index = _namesrvIndex.IncrementAndGet();
+                            index= Math.Abs(index);
+                            index = index % addrList.Count;
+                            var newAddr = addrList[index];
+                            _namesrvAddrChoosed.Value = newAddr;
+                            _logger.LogInformation($"new name server is chosen. OLD: {addr} , NEW: {newAddr}. namesrvIndex = {_namesrvIndex}");
+                            var channelNew = await CreateChannelAsync(newAddr);
+                            if (channelNew is not null)
+                            {
+                                return channelNew;
+                            }
+                        }
+
+                        throw new RemotingConnectException(addrList.PrintString());
+                    }
+                    
+                }
+                finally
+                {
+                    Monitor.Exit(_nameServerChannelLock);
+                }
+            }
+            else
+            {
+                _logger.LogWarning($"GetAndCreateNameserverChannel: try to lock name server, but timeout, {LOCK_TIMEOUT_MILLIS}ms");
+            }
+
+            return null;
+        }
+
+        private async Task<IChannel?> CreateChannelAsync(string addr)
+        {
+            if (_channelTables.TryGetValue(addr, out var cw) && cw.Channel.Active)
+            {
+                return cw.Channel;
+            }
+
+            var acquired = Monitor.TryEnter(_lockChannelTables,TimeSpan.FromMilliseconds(LOCK_TIMEOUT_MILLIS));
+            if (acquired)
+            {
+                try
+                {
+                    bool createNewConnection = false;
+                    if (_channelTables.TryGetValue(addr, out  cw))
+                    {
+                        if (cw.Channel.Active)
+                        {
+                            return cw.Channel;
+                        }
+                        else
+                        {
+                            _channelTables.Remove(addr, out _);
+                            createNewConnection = true;
+                        }
+                    }
+                    else
+                    {
+                        createNewConnection = true;
+                    }
+
+                    if (createNewConnection)
+                    {
+                        var channel = await this.bootstrap.ConnectAsync(RemotingHelper.String2IpEndPoint(addr));
+                        _logger.LogInformation($"CreateChannel: begin to connect remote host[{addr}] asynchronously");
+                        cw = new ChannelWrapper(channel);
+                        _channelTables.TryAdd(addr, cw);
+                    }
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e,"CreateChannel: create channel exception");
+                }
+                finally
+                {
+                    Monitor.Exit(_lockChannelTables);
+                }
+            }
+            else
+            {
+                _logger.LogWarning($"CreateChannel: try to lock channel table, but timeout, {LOCK_TIMEOUT_MILLIS}ms");
+            }
+
+            if (cw is not null)
+            {
+                if (cw.Channel.Active)
+                {
+                    _logger.LogInformation($"CreateChannel: connect remote host[{addr}] success");
+                    return cw.Channel;
+                }
+                else
+                {
+                    _logger.LogWarning($"CreateChannel: connect remote host[{addr}] failed");
+                }
+            }
+
+            return null;
         }
 
         public void RegisterProcessor(int requestCode, INettyRequestProcessor processor)

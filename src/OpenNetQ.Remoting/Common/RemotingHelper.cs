@@ -15,15 +15,13 @@ namespace OpenNetQ.Remoting.Common
     {
         private static IInternalNetQLogger _log = InternalNetQLoggerFactory.GetLogger<RemotingHelper>();
         private RemotingHelper(){ }
-        public static String ExceptionSimpleDesc(Exception? e)
-        {
-            StringBuilder sb = new StringBuilder();
-            if (e != null)
-            {
-                sb.Append($"{e}");
-            }
 
-            return sb.ToString();
+        public static IPEndPoint String2IpEndPoint(string addr)
+        {
+            var split = addr.LastIndexOf(":");
+            var host = addr.Substring(0,split);
+            var port = addr.Substring(split+1);
+            return new IPEndPoint(IPAddress.Parse(host), int.Parse(port));
         }
         /// <summary>
         /// 通过channel解析Ip地址
