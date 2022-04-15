@@ -32,7 +32,7 @@ using Timer = System.Timers.Timer;
 namespace OpenNetQ.Remoting.Netty
 {
     /// <summary>
-    /// 
+    /// time out 后续替换成 task delay
     /// </summary>
     public class NettyRemotingClient : AbstractNettyRemoting, IRemotingClient
     {
@@ -60,6 +60,10 @@ namespace OpenNetQ.Remoting.Netty
         private MultithreadEventLoopGroup group;
 
         private Bootstrap bootstrap;
+        private MessagePackEncoder _encoder;
+        private MessagePackDecoder _decoder;
+        private NettyClientHandler _nettyClientHandler;
+        private NettyClientConnectManagerHandler _nettyClientConnectManagerHandler;
         public NettyRemotingClient(RemotingClientOption option) : base(option.PermitsOneway, option.PermitsAsync)
         {
             _option = option;
@@ -81,8 +85,19 @@ namespace OpenNetQ.Remoting.Netty
             return Math.Abs(random.Next() % 999) % 999;
         }
 
+        private void InitSharableHandlers()
+        {
+            _encoder = new MessagePackEncoder();
+            _decoder = new MessagePackDecoder();
+            _nettyClientHandler = new NettyClientHandler();
+            _nettyClientHandler.OnProcessMessageReceived += OnProcessMessageReceived;
+            _nettyClientConnectManagerHandler = new NettyClientConnectManagerHandler(_option);
+            _nettyClientConnectManagerHandler.OnNettyEventTrigger += OnNettyEventTrigger;
+            _nettyClientConnectManagerHandler.OnCloseChannel += (sender, arg) => CloseChannel(arg);
+        }
         public async Task StartAsync()
         {
+            InitSharableHandlers();
             group = new MultithreadEventLoopGroup(Math.Max(1, _option.ClientWorkThreads));
             bootstrap = new Bootstrap();
             bootstrap
@@ -104,13 +119,13 @@ namespace OpenNetQ.Remoting.Netty
                     }
 
                     pipeline.AddLast("framing-dec", new LengthFieldBasedFrameDecoder(int.MaxValue, 0, 4, 0, 4));
-                    pipeline.AddLast(new MessagePackDecoder());
+                    pipeline.AddLast(_decoder);
                     pipeline.AddLast("framing-enc", new LengthFieldPrepender(4, false));
                     //实体类编码器,心跳管理器,连接管理器
-                    pipeline.AddLast(new MessagePackEncoder()
+                    pipeline.AddLast(_encoder
                         , new IdleStateHandler(0, 0, _option.AllIdleTime),
-                        new NettyClientConnectManagerHandler(_option),
-                        new NettyClientHandler()
+                        _nettyClientConnectManagerHandler,
+                        _nettyClientHandler
                     );
                 }));
             if (_option.ClientSocketSndBufSize > 0)
@@ -253,6 +268,68 @@ namespace OpenNetQ.Remoting.Netty
             }
         }
 
+        public void CloseChannel(IChannel? channel)
+        {
+            if (null == channel)
+                return;
+            
+            try
+            {
+                var acquired = Monitor.TryEnter(_lockChannelTables, TimeSpan.FromMilliseconds(LOCK_TIMEOUT_MILLIS));
+                if (acquired)
+                {
+                    try
+                    {
+                        bool removeItemFromTable = true;
+                        ChannelWrapper preCW = null;
+                        string addrRemote = null;
+                        foreach (var entry in _channelTables)
+                        {
+                            var key = entry.Key;
+                            var prev = entry.Value;
+                            if (prev.Channel.Equals(channel))
+                            {
+                                preCW = prev;
+                                addrRemote = key;
+                                break;
+                            }
+                        }
+
+                        if (preCW is null)
+                        {
+                            _logger.LogInformation(
+                                $"EventCloseChannel: the channel[{addrRemote}] has been removed from the channel table before");
+                            removeItemFromTable = false;
+                        }
+
+                        if (removeItemFromTable)
+                        {
+                            _channelTables!.Remove(addrRemote, out _);
+                            _logger.LogInformation(
+                                $"CloseChannel: the channel[{addrRemote}] was removed from channel table");
+                            RemotingUtil.CloseChannel(channel);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.LogError(e, "CloseChannel: close the channel exception");
+                    }
+                    finally
+                    {
+                        Monitor.Exit(_lockChannelTables);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning($"CloseChannel: try to lock channel table, but timeout, {LOCK_TIMEOUT_MILLIS}ms");
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e,"CloseChannel exception");
+            }
+        }
+
         public void RegisterRPCHook(IRPCHook? hook)
         {
             if (hook != null && !RpcHooks.Contains(hook))
@@ -306,40 +383,52 @@ namespace OpenNetQ.Remoting.Netty
             return _namesrvAddrList.Value;
         }
 
-        public async Task<RemotingCommand> InvokeAsync(string addr, RemotingCommand request, long timeoutMillis,
-            CancellationToken cancellationToken = new CancellationToken())
+        public  Task<RemotingCommand> InvokeAsync(string addr, RemotingCommand request, long timeoutMillis)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var delay = Task.Delay(TimeSpan.FromSeconds(timeoutMillis));
-            var invokeAsync0 = InvokeAsync0(addr,request,cancellationToken);
-            if (await Task.WhenAny(invokeAsync0, delay) == delay)
-            {
-                throw new RemotingTimeoutException($"invokeSync call the addr[{addr}] timeout");
-            }
+            //var delay = Task.Delay(TimeSpan.FromSeconds(timeoutMillis));
+            //var invokeAsync0 = InvokeAsync0(addr,request, timeoutMillis,cancellationToken);
+            //if (await Task.WhenAny(invokeAsync0, delay) == delay)
+            //{
+            //    throw new RemotingTimeoutException($"invokeSync call the addr[{addr}] timeout");
+            //}
 
-            return await invokeAsync0;
+            //return await invokeAsync0;
+            return  InvokeAsync0(addr, request, timeoutMillis);
         }
 
-        private async Task<RemotingCommand> InvokeAsync0(string addr, RemotingCommand request, long timeoutMillis,
-            CancellationToken cancellationToken = new CancellationToken())
+        private async Task<RemotingCommand> InvokeAsync0(string addr, RemotingCommand request, long timeoutMillis)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var channel = await GetAndCreateChannel(addr);
+            var begin = TimeUtil.CurrentTimeMillis();
+            var channel = await GetAndCreateChannelAsync(addr);
             if (channel is not null && channel.Active)
             {
                 try
                 {
                     DoBeforeRpcHooks(addr, request);
-                    var response = await InvokeSyncImpl(channel,request,timeoutMillis);
+                    var costTime = TimeUtil.CurrentTimeMillis() - begin;
+                    if (timeoutMillis <= costTime)
+                    {
+                        throw new RemotingTimeoutException($"invokeSync call the addr[{addr}] timeout");
+                    }
+                    var response = await InvokeSyncImpl(channel,request,timeoutMillis- costTime);
                     DoAfterRpcHooks(RemotingHelper.ParseChannelRemoteAddr(channel),request,response);
                     return response;
                 }
                 catch (RemotingSendRequestException e)
                 {
-                    
-                }catch(RemotingTimeoutException e)
+                    _logger.LogWarning($"invokeSync: send request exception, so close the channel[{addr}]");
+                    this.CloseChannel(addr, channel);
+                    throw;
+                }
+                catch(RemotingTimeoutException e)
                 {
-                    
+                    if (_option.ClientCloseSocketIfTimeout)
+                    {
+                        this.CloseChannel(addr, channel);
+                        _logger.LogWarning($"invokeAsync: close socket because of timeout, {timeoutMillis}ms, {addr}");
+                    }
+                    _logger.LogWarning($"invokeAsync: wait response timeout exception, the channel[{addr}]");
+                    throw;
                 }
             }
             else
@@ -349,26 +438,96 @@ namespace OpenNetQ.Remoting.Netty
             }
         }
 
-        public Task InvokeCallbackAsync(string addr, RemotingCommand request, long timeoutMillis, Action<ResponseTask> callback,
-            CancellationToken cancellationToken = new CancellationToken())
+        public async Task InvokeCallbackAsync(string addr, RemotingCommand request, long timeoutMillis, Action<ResponseTask> callback)
         {
-            throw new NotImplementedException();
+            var begin = TimeUtil.CurrentTimeMillis();
+            var channel = await GetAndCreateChannelAsync(addr);
+            if (channel is not null && channel.Active)
+            {
+                try
+                {
+                    DoBeforeRpcHooks(addr,request);
+                    var costTime = TimeUtil.CurrentTimeMillis()-begin;
+                    if (timeoutMillis <= costTime)
+                    {
+                        throw new RemotingTooMuchRequestException($"invokeAsync call the addr[{addr}] timeout");
+                    }
+
+                    await InvokeAsyncImpl(channel, request, TimeUtil.CurrentTimeMillis() - costTime, callback);
+                }
+                catch (RemotingSendRequestException e)
+                {
+                    _logger.LogWarning($"invokeAsync: send request exception, so close the channel[{addr}]");
+                    CloseChannel(addr,channel);
+                    throw;
+                }
+                catch (RemotingTimeoutException e)
+                {
+                    if (_option.ClientCloseSocketIfTimeout)
+                    {
+                        this.CloseChannel(addr, channel);
+                        _logger.LogWarning($"invokeCallbackAsync: close socket because of timeout, {timeoutMillis}ms, {addr}");
+                    }
+                    _logger.LogWarning($"invokeCallbackAsync: wait response timeout exception, the channel[{addr}]");
+                    throw;
+                }
+            }
+            else
+            {
+                CloseChannel(addr,channel);
+                throw new RemotingConnectException(addr);
+            }
+        }
+        /// <summary>
+        /// time out 替换成 task delay
+        /// </summary>
+        /// <param name="addr"></param>
+        /// <param name="request"></param>
+        /// <param name="timeoutMillis"></param>
+        /// <returns></returns>
+        /// <exception cref="RemotingConnectException"></exception>
+        public async Task InvokeOnewayAsync(string addr, RemotingCommand request, long timeoutMillis)
+        {
+            var channel = await GetAndCreateChannelAsync(addr);
+            if (channel is not null && channel.Active)
+            {
+                try
+                {
+                    DoBeforeRpcHooks(addr, request);
+                    await InvokeOnewayImpl(channel, request, timeoutMillis);
+                }
+                catch (RemotingSendRequestException e)
+                {
+                    _logger.LogWarning($"invokeOneway: send request exception, so close the channel[{addr}]");
+                    CloseChannel(addr, channel);
+                    throw;
+                }
+                catch (RemotingTimeoutException e)
+                {
+                    if (_option.ClientCloseSocketIfTimeout)
+                    {
+                        this.CloseChannel(addr, channel);
+                        _logger.LogWarning($"InvokeOnewayAsync: close socket because of timeout, {timeoutMillis}ms, {addr}");
+                    }
+                    _logger.LogWarning($"InvokeOnewayAsync: wait response timeout exception, the channel[{addr}]");
+                    throw;
+                }
+            }
+            else
+            {
+                CloseChannel(addr,channel);
+                throw new RemotingConnectException(addr);
+            }
         }
 
-        public Task InvokeOnewayAsync(string addr, RemotingCommand request, long timeoutMillis,
-            CancellationToken cancellationToken = new CancellationToken())
-        {
-            throw new NotImplementedException();
-        }
-
-        private async Task<IChannel?> GetAndCreateChannel(string? addr)
+        private async Task<IChannel?> GetAndCreateChannelAsync(string? addr)
         {
             if (addr is null)
             {
                 return await GetAndCreateNameServerChannelAsync();
             }
 
-            if (_channelTables.TryGetValue(addr, out var cw) && cw.Channel.Active)
+            if (_channelTables.TryGetValue(addr, out var cw) && cw.IsActive())
             {
                 return cw.Channel;
             }
@@ -381,7 +540,7 @@ namespace OpenNetQ.Remoting.Netty
             var addr = this._namesrvAddrChoosed.Value;
             if (addr is not null)
             {
-                if (_channelTables.TryGetValue(addr, out var cw)&&cw.Channel.Active)
+                if (_channelTables.TryGetValue(addr, out var cw)&&cw.IsActive())
                 {
                     return cw.Channel;
                 }
@@ -396,7 +555,7 @@ namespace OpenNetQ.Remoting.Netty
                     addr = _namesrvAddrChoosed.Value;
                     if (addr is not null)
                     {
-                        if (_channelTables.TryGetValue(addr, out var cw) && cw.Channel.Active)
+                        if (_channelTables.TryGetValue(addr, out var cw) && cw.IsActive())
                         {
                             return cw.Channel;
                         }
@@ -438,7 +597,7 @@ namespace OpenNetQ.Remoting.Netty
 
         private async Task<IChannel?> CreateChannelAsync(string addr)
         {
-            if (_channelTables.TryGetValue(addr, out var cw) && cw.Channel.Active)
+            if (_channelTables.TryGetValue(addr, out var cw) && cw.IsActive())
             {
                 return cw.Channel;
             }
@@ -451,7 +610,7 @@ namespace OpenNetQ.Remoting.Netty
                     bool createNewConnection = false;
                     if (_channelTables.TryGetValue(addr, out  cw))
                     {
-                        if (cw.Channel.Active)
+                        if (cw.IsActive())
                         {
                             return cw.Channel;
                         }
@@ -490,7 +649,7 @@ namespace OpenNetQ.Remoting.Netty
 
             if (cw is not null)
             {
-                if (cw.Channel.Active)
+                if (cw.IsActive())
                 {
                     _logger.LogInformation($"CreateChannel: connect remote host[{addr}] success");
                     return cw.Channel;
@@ -504,14 +663,19 @@ namespace OpenNetQ.Remoting.Netty
             return null;
         }
 
-        public void RegisterProcessor(int requestCode, INettyRequestProcessor processor)
+        public void RegisterProcessor(int requestCode, INettyRequestProcessor processor, OpenNetQTaskScheduler? scheduler)
         {
-            throw new NotImplementedException();
+            ProcessorTables.Add(requestCode, (processor, scheduler ?? _clientCallbackSchedluer));
         }
 
         public bool IsChannelWritable(string addr)
         {
-            throw new NotImplementedException();
+            if (_channelTables.TryGetValue(addr, out var cw) && cw.IsActive())
+            {
+                return cw.IsWritable();
+            }
+
+            return true;
         }
     }
 
@@ -522,6 +686,15 @@ namespace OpenNetQ.Remoting.Netty
         public ChannelWrapper(IChannel channel)
         {
             Channel = channel;
+        }
+
+        public bool IsActive()
+        {
+            return Channel.Active;
+        }
+        public bool IsWritable()
+        {
+            return Channel.IsWritable;
         }
     }
 }

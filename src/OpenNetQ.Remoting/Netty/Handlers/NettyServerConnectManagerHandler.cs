@@ -62,7 +62,7 @@ namespace OpenNetQ.Remoting.Netty.Handlers
                 {
                     var remoteAddress = RemotingHelper.ParseChannelRemoteAddr(context.Channel);
                     _logger.LogInformation($"NETTY SERVER PIPELINE: IDLE exception [{remoteAddress}]");
-                    RemotingUtil.CloseChannel(context.Channel, _logger);
+                    RemotingUtil.CloseChannel(context.Channel);
                     OnNettyEventTrigger?.Invoke(this,new NettyEventArg(NettyEventTypeEnum.IDLE,remoteAddress,context.Channel));
                     
                 }
@@ -75,7 +75,7 @@ namespace OpenNetQ.Remoting.Netty.Handlers
             _logger.LogError($"NETTY SERVER PIPELINE: exceptionCaught {remoteAddress}");
             _logger.LogError(exception, "NETTY SERVER PIPELINE: exceptionCaught exception.");
             OnNettyEventTrigger?.Invoke(this,new NettyEventArg(NettyEventTypeEnum.EXCEPTION,remoteAddress,context.Channel));
-            RemotingUtil.CloseChannel(context.Channel,_logger);
+            RemotingUtil.CloseChannel(context.Channel);
         }
     }
 }

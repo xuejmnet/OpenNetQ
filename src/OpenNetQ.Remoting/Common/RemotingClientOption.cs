@@ -38,6 +38,7 @@ namespace OpenNetQ.Remoting.Common
         public int ClientSocketRcvBufSize { get; set; }
         public int WriteBufferHighWaterMark { get; set; }
         public int WriteBufferLowWaterMark { get; set; }
+        public bool ClientCloseSocketIfTimeout { get; set; } = true;
         public bool UseTls()
         {
             return TlsCertificate != null;

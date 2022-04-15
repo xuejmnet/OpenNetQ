@@ -382,7 +382,7 @@ namespace OpenNetQ.Remoting.Abstractions
             {
                 var once = new SemaphoreReleaseOnlyOnce(this._semaphoreAsync);
                 long costTime = TimeUtil.CurrentTimeMillis() - beginStartTime;
-                if (timeoutMillis < costTime)
+                if (timeoutMillis <= costTime)
                 {
                     once.Release();
                     throw new RemotingTimeoutException("invokeAsyncImpl call timeout");
