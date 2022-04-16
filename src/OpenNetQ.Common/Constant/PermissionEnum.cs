@@ -11,7 +11,7 @@ namespace OpenNetQ.Common.Constant
     [Flags]
     public enum PermissionEnum
     {
-        INHERIT=1<<0,
+        INHERIT=1,
         WRITE=1<<1,
         READ=1<<2,
         PRIORITY=1<<3

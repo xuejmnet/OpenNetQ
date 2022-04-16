@@ -18,7 +18,7 @@ namespace OpenNetQ.Common
         public string TopicName { get; set; }
         public int ReadQueueNums { get; set; } = DefaultReadQueueNums;
         public int WriteQueueNums { get; set; } = DefaultWriteQueueNums;
-        public int Perm { get; set; } = PermName.PERM_READ | PermName.PERM_WRITE;
+        public PermissionEnum Perm { get; set; } =PermissionEnum.READ|PermissionEnum.WRITE;
         public TopicFilterTypeEnum TopicFilterType { get; set; } = TopicFilterTypeEnum.SINGLE_TAG;
         public int TopicSysFlag { get; set; } = 0;
         public bool Order { get; set; } = false;
@@ -32,7 +32,7 @@ namespace OpenNetQ.Common
             this.TopicName = topicName;
         }
 
-        public TopicConfig(string topicName,int readQueueNums,int writeQueueNums,int perm)
+        public TopicConfig(string topicName,int readQueueNums,int writeQueueNums,PermissionEnum perm)
         {
             TopicName = topicName;
             ReadQueueNums = readQueueNums;
@@ -63,7 +63,7 @@ namespace OpenNetQ.Common
                 TopicName = strs[0];
                 ReadQueueNums = int.Parse(strs[1]);
                 WriteQueueNums = int.Parse(strs[2]);
-                Perm = int.Parse(strs[3]);
+                Perm = (PermissionEnum)int.Parse(strs[3]);
                 TopicFilterType = (TopicFilterTypeEnum)int.Parse(strs[4]);
 
                 return true;

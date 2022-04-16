@@ -39,5 +39,14 @@ namespace OpenNetQ.Extensions
         {
             return data.GetString(Encoding.UTF8);
         }
+
+        public static bool IsNullOrWhiteSpace(this string value)
+        {
+            return string.IsNullOrWhiteSpace(value);
+        }
+        public static bool NoNullOrWhiteSpace(this string value)
+        {
+            return !value.IsNullOrWhiteSpace();
+        }
     }
 }

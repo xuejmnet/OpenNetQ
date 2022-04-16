@@ -11,12 +11,8 @@ namespace OpenNetQ.Common.Constant
 {
     public class PermName
     {
-        public const int PERM_PRIORITY = 0X1 << 3;
-        public const int PERM_READ = 0X1 << 2;
-        public const int PERM_WRITE = 0X1 << 1;
-        public const int PERM_INHERIT = 0X1 << 0;
 
-        public static string Perm2String(int perm)
+        public static string Perm2String(PermissionEnum perm)
         {
             var stringBuilder = new StringBuilder("---");
             if (IsReadable(perm))
@@ -34,17 +30,17 @@ namespace OpenNetQ.Common.Constant
 
             return stringBuilder.ToString();
         }
-        public static bool IsReadable(int perm)
+        public static bool IsReadable(PermissionEnum perm)
         {
-            return (perm & PERM_READ) == PERM_READ;
+            return perm.HasFlag(PermissionEnum.READ);
         }
-        public static bool IsWriteable(int perm)
+        public static bool IsWriteable(PermissionEnum perm)
         {
-            return (perm & PERM_WRITE) == PERM_WRITE;
+            return perm.HasFlag(PermissionEnum.WRITE);
         }
-        public static bool IsInherited(int perm)
+        public static bool IsInherited(PermissionEnum perm)
         {
-            return (perm & PERM_INHERIT) == PERM_INHERIT;
+            return perm.HasFlag(PermissionEnum.INHERIT);
         }
 
     }

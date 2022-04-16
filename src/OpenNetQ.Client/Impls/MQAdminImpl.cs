@@ -59,7 +59,10 @@ namespace OpenNetQ.Client.Impls
                             {
                                 try
                                 {
-                                    _mqClientFactory.GetMQClientAPIImpl().
+                                    await _mqClientFactory.GetMQClientAPIImpl().CreateTopicAsync(addr, key, topicConfig, TimeoutMillis);
+                                    createOK = true;
+                                    createOKAtLeastOnce = true;
+                                    break;
                                 }
                                 catch (Exception e)
                                 {
@@ -69,9 +72,26 @@ namespace OpenNetQ.Client.Impls
                                     }
                                 }
                             }
+
+                            if (createOK)
+                            {
+                                orderTopicString.Append(brokerData.BrokerName);
+                                orderTopicString.Append(":");
+                                orderTopicString.Append(queueNum);
+                                orderTopicString.Append(";");
+                            }
                         }
 
                     }
+
+                    if (exception != null && !createOKAtLeastOnce)
+                    {
+                        throw exception;
+                    }
+                }
+                else
+                {
+                    throw new MQClientException("Not found broker, maybe key is wrong", null);
                 }
 
             }

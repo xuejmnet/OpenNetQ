@@ -60,35 +60,33 @@ namespace OpenNetQ.Client.Impls
             _remotingClient.RegisterProcessor(RequestCode.PUSH_REPLY_MESSAGE_TO_CLIENT, _clientRemotingProcessor, null);
         }
 
-        public void createTopic(string addr, string defaultTopic, TopicConfig topicConfig,
-        long timeoutMillis)
+        public async Task CreateTopicAsync(string addr, string defaultTopic, TopicConfig topicConfig,long timeoutMillis)
         {
             CreateTopicRequestHeader requestHeader = new CreateTopicRequestHeader();
-            requestHeader.setTopic(topicConfig.getTopicName());
-            requestHeader.setDefaultTopic(defaultTopic);
-            requestHeader.setReadQueueNums(topicConfig.getReadQueueNums());
-            requestHeader.setWriteQueueNums(topicConfig.getWriteQueueNums());
-            requestHeader.setPerm(topicConfig.getPerm());
-            requestHeader.setTopicFilterType(topicConfig.getTopicFilterType().name());
-            requestHeader.setTopicSysFlag(topicConfig.getTopicSysFlag());
-            requestHeader.setOrder(topicConfig.isOrder());
+            requestHeader.Topic=topicConfig.TopicName;
+            requestHeader.DefaultTopic=defaultTopic;
+            requestHeader.ReadQueueNums=topicConfig.ReadQueueNums;
+            requestHeader.WriteQueueNums = topicConfig.WriteQueueNums;
+            requestHeader.Perm = topicConfig.Perm;
+            requestHeader.TopicFilterType=topicConfig.TopicFilterType.ToString();
+            requestHeader.TopicSysFlag=topicConfig.TopicSysFlag;
+            requestHeader.Order=topicConfig.Order;
 
-            RemotingCommand request = RemotingCommand.createRequestCommand(RequestCode.UPDATE_AND_CREATE_TOPIC, requestHeader);
+            RemotingCommand request = RemotingCommand.CreateRequestCommand(RequestCode.UPDATE_AND_CREATE_TOPIC, requestHeader);
 
-            RemotingCommand response = this.remotingClient.invokeSync(MixAll.brokerVIPChannel(this.clientConfig.isVipChannelEnabled(), addr),
-                request, timeoutMillis);
-            assert response != null;
-            switch (response.getCode())
+            RemotingCommand response = await this._remotingClient.InvokeAsync(addr,request, timeoutMillis);
+            switch (response.Code)
             {
                 case ResponseCode.SUCCESS:
                     {
                         return;
                     }
+                    break;
                 default:
                     break;
             }
 
-            throw new MQClientException(response.getCode(), response.getRemark());
+            throw new MQClientException(response.Code, response.Remark);
         }
 
         public async Task<TopicRouteData> GetTopicRouteInfoFromNameServerAsync(string topic, long timeoutMillis)

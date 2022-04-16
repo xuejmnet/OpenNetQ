@@ -41,5 +41,9 @@ namespace OpenNetQ.Client.Impls.Factory
         {
             return _mqClientAPIImpl;
         }
+        public  MQAdminImpl GetMQAdminImpl()
+        {
+            return _mqAdminImpl;
+        }
     }
 }

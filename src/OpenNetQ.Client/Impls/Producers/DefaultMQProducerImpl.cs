@@ -21,17 +21,17 @@ namespace OpenNetQ.Client.Impls.Producers
     /// Email: 326308290@qq.com
     public class DefaultMQProducerImpl : IMQProducerInner
     {
-        private readonly IMQProducer _mqProducer;
+        private readonly DefaultMQProducer _defaultMQProducer;
         private readonly IRPCHook? _rpcHook;
         private ServiceStateEnum _serviceState = ServiceStateEnum.CREATE_JUST;
         private MQClientInstance _mqClientFactory;
-        public DefaultMQProducerImpl(IMQProducer mqProducer) : this(mqProducer, null)
+        public DefaultMQProducerImpl(DefaultMQProducer defaultMQProducer) : this(defaultMQProducer, null)
         {
 
         }
-        public DefaultMQProducerImpl(IMQProducer mqProducer, IRPCHook? rpcHook)
+        public DefaultMQProducerImpl(DefaultMQProducer defaultMQProducer, IRPCHook? rpcHook)
         {
-            _mqProducer = mqProducer;
+            _defaultMQProducer = defaultMQProducer;
             _rpcHook = rpcHook;
         }
         public ISet<string> GetPublishTopicList()
@@ -56,7 +56,7 @@ namespace OpenNetQ.Client.Impls.Producers
 
         public bool IsUnitMode()
         {
-            throw new NotImplementedException();
+            return _defaultMQProducer.UnitMode;
         }
 
         public void Start()
@@ -76,9 +76,23 @@ namespace OpenNetQ.Client.Impls.Producers
                 throw new MQClientException($"The producer service state not OK, {_serviceState}", null);
             }
         }
-        public async Task<List<MessageQueue>> FetchPublishMessageQueue(string topic)
+
+        public Task CreateTopicAsync(string key, string newTopic, int queueNum)
+        {
+            
+        }
+        public Task CreateTopicAsync(string key, string newTopic, int queueNum,int topicSysFlag)
         {
             MakeSureStateOK();
+            Validators.CheckTopic(newTopic);
+            Validators.IsSystemTopic(newTopic);
+            return _mqClientFactory.GetMQAdminImpl().CreateTopicAsync(key, newTopic, queueNum, topicSysFlag);
+        }
+        
+        public  Task<List<MessageQueue>> FetchPublishMessageQueue(string topic)
+        {
+            MakeSureStateOK();
+            return _mqClientFactory.GetMQClientAPIImpl()
         }
     }
 }

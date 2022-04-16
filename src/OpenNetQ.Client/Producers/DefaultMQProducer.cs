@@ -127,13 +127,13 @@ namespace OpenNetQ.Client.Producers
 
         public Task<List<MessageQueue>> FetchPublishMessageQueuesAsync(string topic)
         {
-            return _defaultMQProducerImpl.f
+            return _defaultMQProducerImpl.FetchPublishMessageQueue(topic);
         }
 
 
-        public Task CreateTopicAsync(string key, string newTopic, int queueNum, int topicSysFlag)
+        public async Task CreateTopicAsync(string key, string newTopic, int queueNum, int topicSysFlag)
         {
-            throw new NotImplementedException();
+            return _defaultMQProducerImpl.
         }
 
         public Task<long> SearchOffsetAsync(MessageQueue queue, long timestamp)
