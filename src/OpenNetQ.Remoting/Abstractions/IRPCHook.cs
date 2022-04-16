@@ -9,7 +9,7 @@ namespace OpenNetQ.Remoting.Abstractions
 {
     public interface IRPCHook
     {
-        Task DoBeforeRequest(string remoteAddr, RemotingCommand request);
-        Task DoAfterResponse(string remoteAddr, RemotingCommand request, RemotingCommand? response);
+        Task DoBeforeRequest(string? remoteAddr, RemotingCommand request);
+        Task DoAfterResponse(string? remoteAddr, RemotingCommand request, RemotingCommand? response);
     }
 }

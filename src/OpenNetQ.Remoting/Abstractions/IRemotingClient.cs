@@ -15,7 +15,7 @@ namespace OpenNetQ.Remoting.Abstractions
         void UpdateNameServerAddressList(List<string> addrs);
 
         List<string>? GetNameServerAddressList();
-        Task<RemotingCommand> InvokeAsync(string addr, RemotingCommand request, long timeoutMillis);
+        Task<RemotingCommand> InvokeAsync(string? addr, RemotingCommand request, long timeoutMillis);
         Task InvokeCallbackAsync(string addr, RemotingCommand request, long timeoutMillis,Action<ResponseTask> callback);
         Task InvokeOnewayAsync(string addr, RemotingCommand request, long timeoutMillis);
 

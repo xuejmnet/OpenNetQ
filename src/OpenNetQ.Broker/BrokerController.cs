@@ -347,7 +347,7 @@ namespace OpenNetQ.Broker
 
                 if (forceRegister || NeedRegister(_brokerOption.BrokerClusterName, GetBrokerAddr(),
                         _brokerOption.BrokerName,
-                        _brokerOption.BrokerId, _brokerOption.RegisterBrokerTimeoutMills))
+                        _brokerOption.BrokerId, _brokerOption.RegisterBrokertimeoutMillis))
                 {
                     DoRegisterBrokerAll(checkOrderConfig, oneway, topicConfigWrapper);
                 }
@@ -367,7 +367,7 @@ namespace OpenNetQ.Broker
                 topicConfigWrapper,
                 _filterServerManager.BuildNewFilterServerList(),
                 oneway,
-                _brokerOption.RegisterBrokerTimeoutMills,
+                _brokerOption.RegisterBrokertimeoutMillis,
                 _brokerOption.IsCompressedRegister
             );
             if (registerBrokerResultList.Any())
@@ -387,10 +387,10 @@ namespace OpenNetQ.Broker
         }
 
         private bool NeedRegister(string clusterName, string brokerAddr, string brokerName, long brokerId,
-            int timeoutMills)
+            int timeoutMillis)
         {
             var topicConfigWrapper = _topicConfigManager.BuildTopicConfigSerializeWrapper();
-            var needRegister = _brokerOuterApi.NeedRegister(clusterName, brokerAddr, brokerName, brokerId, topicConfigWrapper, timeoutMills);
+            var needRegister = _brokerOuterApi.NeedRegister(clusterName, brokerAddr, brokerName, brokerId, topicConfigWrapper, timeoutMillis);
             return needRegister.Any(o => o);
         }
 

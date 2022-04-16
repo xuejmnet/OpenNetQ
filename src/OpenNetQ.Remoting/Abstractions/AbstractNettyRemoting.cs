@@ -277,7 +277,7 @@ namespace OpenNetQ.Remoting.Abstractions
         }
 
 
-        protected void DoBeforeRpcHooks(String addr, RemotingCommand request)
+        protected void DoBeforeRpcHooks(string? addr, RemotingCommand request)
         {
             if (RpcHooks.Count > 0)
             {
@@ -288,7 +288,7 @@ namespace OpenNetQ.Remoting.Abstractions
             }
         }
 
-        protected void DoAfterRpcHooks(String addr, RemotingCommand request, RemotingCommand? response)
+        protected void DoAfterRpcHooks(string? addr, RemotingCommand request, RemotingCommand? response)
         {
             foreach (var rpcHook in RpcHooks)
             {

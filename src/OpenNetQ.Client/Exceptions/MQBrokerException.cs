@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using OpenNetQ.Common.Helper;
+using OpenNetQ.Exceptions;
 
 namespace OpenNetQ.Client.Exceptions
 {
@@ -13,7 +14,7 @@ namespace OpenNetQ.Client.Exceptions
     /// Author: xjm
     /// Created: 2022/4/15 11:21:32
     /// Email: 326308290@qq.com
-    public class MQBrokerException: Exception
+    public class MQBrokerException: OpenNetQException
     {
         public  int ResponseCode { get; }
         public string ErrorMessage { get; }

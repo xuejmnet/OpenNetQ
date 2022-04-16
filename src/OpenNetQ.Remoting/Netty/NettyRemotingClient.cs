@@ -383,7 +383,7 @@ namespace OpenNetQ.Remoting.Netty
             return _namesrvAddrList.Value;
         }
 
-        public  Task<RemotingCommand> InvokeAsync(string addr, RemotingCommand request, long timeoutMillis)
+        public  Task<RemotingCommand> InvokeAsync(string? addr, RemotingCommand request, long timeoutMillis)
         {
             //var delay = Task.Delay(TimeSpan.FromSeconds(timeoutMillis));
             //var invokeAsync0 = InvokeAsync0(addr,request, timeoutMillis,cancellationToken);
@@ -396,7 +396,7 @@ namespace OpenNetQ.Remoting.Netty
             return  InvokeAsync0(addr, request, timeoutMillis);
         }
 
-        private async Task<RemotingCommand> InvokeAsync0(string addr, RemotingCommand request, long timeoutMillis)
+        private async Task<RemotingCommand> InvokeAsync0(string? addr, RemotingCommand request, long timeoutMillis)
         {
             var begin = TimeUtil.CurrentTimeMillis();
             var channel = await GetAndCreateChannelAsync(addr);

@@ -22,5 +22,18 @@ namespace OpenNetQ.Client
         private bool _namespaceInitialized = false;
         protected AccessChannelEnum AccessChannel = AccessChannelEnum.LOCAL;
         private int _pullNameServerInterval = 1000 * 30;
+
+        private bool _useTLS=false;
+
+        public virtual void SetUseTLS(bool useTLS)
+        {
+            this._useTLS = useTLS;
+        }
+
+        public string? WithNamespace(string resource)
+        {
+            //todo
+            return null;
+        }
     }
 }

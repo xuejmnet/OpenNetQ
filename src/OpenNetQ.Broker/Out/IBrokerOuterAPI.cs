@@ -11,7 +11,7 @@ namespace OpenNetQ.Broker.Out
     public interface IBrokerOuterAPI
     {
         ICollection<bool> NeedRegister(string clusterName, string brokerAddr, string brokerName, long brokerId,
-            TopicConfigSerializeWrapper topicConfigWrapper, int timeoutMills);
+            TopicConfigSerializeWrapper topicConfigWrapper, int timeoutMillis);
 
         ICollection<RegisterBrokerResult> RegisterBrokerAll(
             string clusterName,
@@ -22,7 +22,7 @@ namespace OpenNetQ.Broker.Out
             TopicConfigSerializeWrapper topicConfigWrapper,
             ICollection<string> filterServerList,
             bool oneway,
-            int timeoutMills,
+            int timeoutMillis,
             bool compressed
         );
 

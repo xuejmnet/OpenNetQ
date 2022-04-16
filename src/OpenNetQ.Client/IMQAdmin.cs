@@ -17,6 +17,7 @@ namespace OpenNetQ.Client
     /// Email: 326308290@qq.com
     public interface IMQAdmin
     {
+        Task CreateTopicAsync(string key, string newTopic, int queueNum);
         /// <summary>
         /// 创建一个主题
         /// </summary>
