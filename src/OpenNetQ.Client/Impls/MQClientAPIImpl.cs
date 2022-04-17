@@ -11,6 +11,7 @@ using OpenNetQ.Common.NameSrv;
 using OpenNetQ.Common.Protocol;
 using OpenNetQ.Common.Protocol.Header.NameSrerver;
 using OpenNetQ.Common.Protocol.Route;
+using OpenNetQ.Common.Subscription;
 using OpenNetQ.Logging;
 using OpenNetQ.Remoting.Abstractions;
 using OpenNetQ.Remoting.Common;
@@ -60,6 +61,39 @@ namespace OpenNetQ.Client.Impls
             _remotingClient.RegisterProcessor(RequestCode.PUSH_REPLY_MESSAGE_TO_CLIENT, _clientRemotingProcessor, null);
         }
 
+        public List<string>? GetNameServerAddressList()
+        {
+            return _remotingClient.GetNameServerAddressList();
+        }
+
+        public IRemotingClient GetRemotingClient()
+        {
+            return _remotingClient;
+        }
+
+        public string FetchNameServerAddr()
+        {
+            // try
+            // {
+            //     _topAddressing.FetchNSAddr();
+            // }
+            // catch (Exception e)
+            // {
+            //     
+            // }
+            throw new NotImplementedException();
+        }
+
+        public async Task StartAsync()
+        {
+            await _remotingClient.StartAsync();
+        }
+
+        public async Task StopAsync()
+        {
+            await _remotingClient.StopAsync();
+        }
+        public Task CreateSubscriptionGroup(string addr,SubscriptionGroupConfig)
         public async Task CreateTopicAsync(string addr, string defaultTopic, TopicConfig topicConfig,long timeoutMillis)
         {
             CreateTopicRequestHeader requestHeader = new CreateTopicRequestHeader();
@@ -91,7 +125,6 @@ namespace OpenNetQ.Client.Impls
 
         public async Task<TopicRouteData> GetTopicRouteInfoFromNameServerAsync(string topic, long timeoutMillis)
         {
-
             return await GetTopicRouteInfoFromNameServerAsync(topic, timeoutMillis, true);
         }
         public async Task<TopicRouteData> GetTopicRouteInfoFromNameServerAsync(string topic, long timeoutMillis,
